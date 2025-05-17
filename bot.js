@@ -84,7 +84,7 @@ class Bot {
 
                 if (qr) {
                     console.log("📸 Gerando QR Code...");
-                    qrcodeTerminal.generate(qr, { small: true });
+                    qrcodeTerminal.generate(qr, { small: false });
                     console.log("🔗 Escaneie o QR Code acima ou acesse o arquivo gerado.");
 
                     this.qrCodePath = `./qr_code.png`;
@@ -546,12 +546,16 @@ app.get('/qrcode', (req, res) => {
 
 app.get('/', (req, res) => {
     if (!botInstance || !botInstance.qrCodePath || !fs.existsSync(botInstance.qrCodePath)) {
-        return res.send('<h1>QR Code não disponível</h1><p>Aguarde a geração ou verifique os logs.</p>');
+        return res.send(`
+            <h1>QR Code não disponível</h1>
+            <p>Aguarde a geração ou verifique os logs. Tente atualizar a página em alguns segundos.</p>
+        `);
     }
     res.send(`
         <h1>Escaneie o QR Code para autenticar o Akira Bot</h1>
-        <img src="/qrcode" alt="QR Code" />
+        <img src="/qrcode" alt="QR Code" style="width: 400px; height: 400px;" />
         <p>Atualize a página se o QR code não carregar. Após escanear, o bot estará autenticado.</p>
+        <p>Se o QR code não aparecer, verifique os logs para mais detalhes.</p>
     `);
 });
 
