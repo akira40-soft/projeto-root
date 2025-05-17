@@ -9,7 +9,6 @@ const {
 const axios = require('axios');
 const fs = require('fs');
 const qrcode = require('qrcode');
-const qrcodeTerminal = require('qrcode-terminal');
 const express = require('express');
 
 let API_URL;
@@ -77,20 +76,18 @@ class Bot {
                 markOnlineOnConnect: false,
             });
 
-            // Gerar e exibir o QR code
+            // Gerar o QR code e salvar como arquivo
             this.sock.ev.on('connection.update', async (update) => {
                 const { connection, lastDisconnect, qr } = update;
                 console.log(`🔄 Estado da conexão: ${connection}`);
 
                 if (qr) {
                     console.log("📸 Gerando QR Code...");
-                    qrcodeTerminal.generate(qr, { small: true });
-                    console.log("🔗 Escaneie o QR Code acima ou acesse o arquivo gerado.");
-
                     this.qrCodePath = `./qr_code.png`;
-                    await qrcode.toFile(this.qrCodePath, qr, { width: 150, height: 150 }) // Ajuste para 150x150 pixels (~4cm x 4cm em 96 DPI)
+                    await qrcode.toFile(this.qrCodePath, qr, { width: 150, height: 150 })
                         .then(() => console.log(`💾 QR Code salvo em: ${this.qrCodePath}`))
                         .catch(err => console.error("❌ Erro ao salvar QR Code:", err));
+                    console.log(`🔗 Acesse https://projeto-root.onrender.com/ para visualizar e escanear o QR Code.`);
                 }
 
                 if (connection === 'close') {
