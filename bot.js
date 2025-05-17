@@ -523,6 +523,15 @@ async function startBot() {
 const app = express();
 let botInstance;
 
+// Adicionando a rota /healthz
+app.get('/healthz', (req, res) => {
+    if (botInstance && botInstance.isConnected) {
+        res.status(200).send('Healthy');
+    } else {
+        res.status(503).send('Service Unavailable');
+    }
+});
+
 app.get('/qrcode', (req, res) => {
     if (!botInstance || !botInstance.qrCodePath || !fs.existsSync(botInstance.qrCodePath)) {
         return res.status(404).send('QR Code não disponível. Aguarde a geração ou verifique os logs.');
