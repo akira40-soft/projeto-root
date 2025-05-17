@@ -3,7 +3,8 @@ const {
     default: makeWASocket,
     useMultiFileAuthState,
     DisconnectReason,
-    fetchLatestBaileysVersion
+    fetchLatestBaileysVersion,
+    getAggregateVotesInPollMessage
 } = require('baileys');
 const axios = require('axios');
 const fs = require('fs');
@@ -27,11 +28,15 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 const MAX_CACHE_SIZE = 100;
 const PRIVILEGED_NUMBER = "244937035662";
 
-// Timeout e configuração de retry para lidar com o "sleep" do Render
-const REQUEST_TIMEOUT = 90000; // 90 segundos para cobrir o delay do Render
-const HEALTH_CHECK_TIMEOUT = 60000; // 60 segundos para verificar o health
-const MAX_RETRIES = 3; // Número máximo de tentativas
-const RETRY_DELAY = 5000; // Atraso de 5 segundos entre tentativas
+// Timeout e configuração de retry otimizada para Render
+const REQUEST_TIMEOUT = 60000; // 60 segundos (reduzido para respostas mais rápidas)
+const HEALTH_CHECK_TIMEOUT = 30000; // 30 segundos para verificação de saúde
+const MAX_RETRIES = 5; // Aumentado para 5 tentativas para maior resiliência
+const RETRY_DELAY = 3000; // Atraso de 3 segundos entre tentativas (mais rápido)
+
+// Keep-alive e monitoramento
+const KEEP_ALIVE_INTERVAL = 5 * 60 * 1000; // 5 minutos para ping ao WhatsApp
+let isKeepAliveRunning = false;
 
 // Limpeza periódica do cache
 function cleanCache() {
@@ -54,6 +59,7 @@ class Bot {
         this.sock = null;
         this.botNumber = null;
         this.qrCodePath = null;
+        this.isConnected = false;
     }
 
     async iniciar() {
@@ -66,13 +72,13 @@ class Bot {
             this.sock = makeWASocket({
                 version,
                 auth: state,
-                printQRInTerminal: false, // Desativado para personalizar o QR code
-                syncFullHistory: false, // Otimização para evitar sincronização pesada
-                markOnlineOnConnect: false, // Evita marcar como online imediatamente
+                printQRInTerminal: false,
+                syncFullHistory: false,
+                markOnlineOnConnect: false,
             });
 
             // Gerar e exibir o QR code
-            this.sock.ev.on('connection.update', (update) => {
+            this.sock.ev.on('connection.update', async (update) => {
                 const { connection, lastDisconnect, qr } = update;
                 console.log(`🔄 Estado da conexão: ${connection}`);
 
@@ -82,16 +88,17 @@ class Bot {
                     console.log("🔗 Escaneie o QR Code acima ou acesse o arquivo gerado.");
 
                     this.qrCodePath = `./qr_code.png`;
-                    qrcode.toFile(this.qrCodePath, qr, { type: 'png' })
+                    await qrcode.toFile(this.qrCodePath, qr, { type: 'png' })
                         .then(() => console.log(`💾 QR Code salvo em: ${this.qrCodePath}`))
                         .catch(err => console.error("❌ Erro ao salvar QR Code:", err));
                 }
 
                 if (connection === 'close') {
+                    this.isConnected = false;
                     const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
                     if (shouldReconnect) {
                         console.error('❌ Conexão fechada, reconectando...');
-                        setTimeout(() => this.iniciar(), 5000);
+                        setTimeout(() => this.iniciar(), 3000); // Reconexão mais rápida
                     } else {
                         console.error('❌ Deslogado. Reinicie e escaneie o QR code novamente.');
                         process.exit(1);
@@ -100,16 +107,51 @@ class Bot {
                     console.log('✅ Bot conectado ao WhatsApp!');
                     this.botNumber = this.sock.user.id.split(':')[0];
                     console.log(`🔢 Número do bot: ${this.botNumber}`);
+                    this.isConnected = true;
+                    this.startKeepAlive(); // Inicia o keep-alive após conexão
                 }
             });
 
             this.sock.ev.on('creds.update', saveCreds);
 
-            await new Promise(resolve => setTimeout(resolve, 15000)); // 15 segundos de espera
+            await new Promise(resolve => setTimeout(resolve, 5000)); // Reduzido para 5 segundos
             this.sock.ev.on('messages.upsert', (m) => this.processarMensagem(m));
         } catch (error) {
             console.error("❌ Erro ao iniciar Baileys:", error.message);
-            setTimeout(() => this.iniciar(), 5000);
+            setTimeout(() => this.iniciar(), 3000);
+        }
+    }
+
+    startKeepAlive() {
+        if (isKeepAliveRunning) return;
+        isKeepAliveRunning = true;
+        console.log("⏳ Iniciando keep-alive a cada 5 minutos...");
+        setInterval(async () => {
+            if (this.isConnected && this.sock) {
+                try {
+                    await this.sock.sendPresenceUpdate('available');
+                    console.log("🔋 Keep-alive enviado ao WhatsApp.");
+                    // Verifica saúde da conexão
+                    const isHealthy = await this.checkConnectionHealth();
+                    if (!isHealthy) {
+                        console.warn("⚠️ Conexão com WhatsApp instável, reiniciando...");
+                        this.iniciar();
+                    }
+                } catch (error) {
+                    console.error("❌ Erro no keep-alive:", error.message);
+                    this.iniciar();
+                }
+            }
+        }, KEEP_ALIVE_INTERVAL);
+    }
+
+    async checkConnectionHealth() {
+        try {
+            const result = await this.sock.sendMessage(this.sock.user.id, { text: 'Ping' });
+            return !!result;
+        } catch (error) {
+            console.error("❌ Falha na verificação de saúde da conexão:", error.message);
+            return false;
         }
     }
 
