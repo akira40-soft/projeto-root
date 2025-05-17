@@ -553,7 +553,7 @@ app.get('/', (req, res) => {
     }
     res.send(`
         <h1>Escaneie o QR Code para autenticar o Akira Bot</h1>
-        <img src="/qrcode" alt="QR Code" style="width: 25px; height: 50px;" />
+        <img src="/qrcode" alt="QR Code" style="width: 10px; height: 10px;" />
         <p>Atualize a página se o QR code não carregar. Após escanear, o bot estará autenticado.</p>
         <p>Se o QR code não aparecer, verifique os logs para mais detalhes.</p>
     `);
