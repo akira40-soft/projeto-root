@@ -277,7 +277,7 @@ class Bot {
                 const isGroup = chatId.includes('@g.us');
                 const mentionedAkira = message.message?.extendedTextMessage?.contextInfo?.mentionedJid?.includes(this.sock.user.id) || (message.message?.conversation?.toLowerCase().includes('akira'));
                 const isReply = !!message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-                const quotedMsg = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+                const rawQuotedMsg = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
                 const quotedAuthor = message.message?.extendedTextMessage?.contextInfo?.participant;
                 const isReplyToAkira = isReply && quotedAuthor && quotedAuthor.includes(this.botNumber);
 
@@ -394,7 +394,7 @@ class Bot {
                 }
 
                 let quotedMsg = null;
-                if (isReply && quotedMsg) {
+                if (isReply && rawQuotedMsg) {
                     const quotedMsgId = message.message?.extendedTextMessage?.contextInfo?.stanzaId || 'unknown';
                     let quotedMsgBody = message.message?.extendedTextMessage?.contextInfo?.quotedMessage?.conversation || '';
                     if (!quotedMsgBody && messageCache.has(quotedMsgId)) {
