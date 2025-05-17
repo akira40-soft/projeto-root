@@ -88,7 +88,7 @@ class Bot {
                     console.log("🔗 Escaneie o QR Code acima ou acesse o arquivo gerado.");
 
                     this.qrCodePath = `./qr_code.png`;
-                    await qrcode.toFile(this.qrCodePath, qr, { type: 'png' })
+                    await qrcode.toFile(this.qrCodePath, qr, { width: 150, height: 150 }) // Ajuste para 150x150 pixels (~4cm x 4cm em 96 DPI)
                         .then(() => console.log(`💾 QR Code salvo em: ${this.qrCodePath}`))
                         .catch(err => console.error("❌ Erro ao salvar QR Code:", err));
                 }
@@ -553,7 +553,7 @@ app.get('/', (req, res) => {
     }
     res.send(`
         <h1>Escaneie o QR Code para autenticar o Akira Bot</h1>
-        <img src="/qrcode" alt="QR Code" style="width: 10px; height: 10px;" />
+        <img src="/qrcode" alt="QR Code" style="width: 150px; height: 150px;" />
         <p>Atualize a página se o QR code não carregar. Após escanear, o bot estará autenticado.</p>
         <p>Se o QR code não aparecer, verifique os logs para mais detalhes.</p>
     `);
