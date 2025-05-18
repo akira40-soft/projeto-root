@@ -29,13 +29,13 @@ const MAX_CACHE_SIZE = 100;
 const PRIVILEGED_NUMBER = "244937035662";
 
 // Timeout e configuração de retry otimizada para Render
-const REQUEST_TIMEOUT = 60000; // 60 segundos (reduzido para respostas mais rápidas)
-const HEALTH_CHECK_TIMEOUT = 30000; // 30 segundos para verificação de saúde
-const MAX_RETRIES = 5; // Aumentado para 5 tentativas para maior resiliência
-const RETRY_DELAY = 3000; // Atraso de 3 segundos entre tentativas (mais rápido)
+const REQUEST_TIMEOUT = 60000; // 60 segundos
+const HEALTH_CHECK_TIMEOUT = 30000; // 30 segundos
+const MAX_RETRIES = 5; // 5 tentativas
+const RETRY_DELAY = 3000; // 3 segundos
 
 // Keep-alive e monitoramento
-const KEEP_ALIVE_INTERVAL = 5 * 60 * 1000; // 5 minutos para ping ao WhatsApp
+const KEEP_ALIVE_INTERVAL = 5 * 60 * 1000; // 5 minutos
 let isKeepAliveRunning = false;
 
 // Limpeza periódica do cache
@@ -77,19 +77,32 @@ class Bot {
                 markOnlineOnConnect: false,
             });
 
-            // Gerar e exibir o QR code
+            // Gerar e exibir o QR Code otimizado
             this.sock.ev.on('connection.update', async (update) => {
                 const { connection, lastDisconnect, qr } = update;
                 console.log(`🔄 Estado da conexão: ${connection}`);
 
                 if (qr) {
-                    console.log("📸 Gerando QR Code...");
-                    qrcodeTerminal.generate(qr, { small: true });
-                    console.log("🔗 Escaneie o QR Code acima ou acesse o arquivo gerado.");
+                    console.log("📸 Gerando QR Code para escaneamento...");
+                    // Exibir QR Code no terminal de forma compacta e legível
+                    qrcodeTerminal.generate(qr, {
+                        small: true, // Modo compacto
+                        white: " ",  // Espaço em branco como fundo
+                        black: "█",  // Caractere sólido para preto
+                        scale: 0.8   // Reduz o tamanho relativo (ajuste fino)
+                    });
+                    console.log("\n🔍 Escaneie o QR Code acima com seu telefone. Se estiver muito grande ou confuso, use o arquivo gerado.");
+                    console.log("📌 Dica: Ajuste o zoom no seu telefone para escanear com precisão.");
 
+                    // Gerar arquivo QR Code com resolução otimizada
                     this.qrCodePath = `./qr_code.png`;
-                    await qrcode.toFile(this.qrCodePath, qr, { width: 150, height: 150 }) // Ajuste para 150x150 pixels (~4cm x 4cm em 96 DPI)
-                        .then(() => console.log(`💾 QR Code salvo em: ${this.qrCodePath}`))
+                    await qrcode.toFile(this.qrCodePath, qr, {
+                        width: 300,  // Aumentado para 300x300 pixels para melhor escaneamento
+                        height: 300,
+                        margin: 1,   // Margem mínima para evitar cortes
+                        color: { dark: '#000000', light: '#FFFFFF' } // Contraste claro
+                    })
+                        .then(() => console.log(`💾 QR Code salvo em: ${this.qrCodePath}. Escaneie com seu telefone!`))
                         .catch(err => console.error("❌ Erro ao salvar QR Code:", err));
                 }
 
@@ -98,7 +111,7 @@ class Bot {
                     const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
                     if (shouldReconnect) {
                         console.error('❌ Conexão fechada, reconectando...');
-                        setTimeout(() => this.iniciar(), 3000); // Reconexão mais rápida
+                        setTimeout(() => this.iniciar(), 3000);
                     } else {
                         console.error('❌ Deslogado. Reinicie e escaneie o QR code novamente.');
                         process.exit(1);
@@ -108,13 +121,13 @@ class Bot {
                     this.botNumber = this.sock.user.id.split(':')[0];
                     console.log(`🔢 Número do bot: ${this.botNumber}`);
                     this.isConnected = true;
-                    this.startKeepAlive(); // Inicia o keep-alive após conexão
+                    this.startKeepAlive();
                 }
             });
 
             this.sock.ev.on('creds.update', saveCreds);
 
-            await new Promise(resolve => setTimeout(resolve, 5000)); // Reduzido para 5 segundos
+            await new Promise(resolve => setTimeout(resolve, 5000));
             this.sock.ev.on('messages.upsert', (m) => this.processarMensagem(m));
         } catch (error) {
             console.error("❌ Erro ao iniciar Baileys:", error.message);
@@ -131,7 +144,6 @@ class Bot {
                 try {
                     await this.sock.sendPresenceUpdate('available');
                     console.log("🔋 Keep-alive enviado ao WhatsApp.");
-                    // Verifica saúde da conexão
                     const isHealthy = await this.checkConnectionHealth();
                     if (!isHealthy) {
                         console.warn("⚠️ Conexão com WhatsApp instável, reiniciando...");
@@ -164,7 +176,7 @@ class Bot {
             await this.sock.sendPresenceUpdate('paused', chatId);
         } catch (error) {
             console.error("❌ Erro ao simular digitação:", error.message);
-            await new Promise(resolve => setTimeout(resolve, typingDelay)); // Fallback simples
+            await new Promise(resolve => setTimeout(resolve, typingDelay));
         }
     }
 
@@ -553,7 +565,7 @@ app.get('/', (req, res) => {
     }
     res.send(`
         <h1>Escaneie o QR Code para autenticar o Akira Bot</h1>
-        <img src="/qrcode" alt="QR Code" style="width: 5px; height: 5px;" />
+        <img src="/qrcode" alt="QR Code" style="width: 300px; height: 300px;" />
         <p>Atualize a página se o QR code não carregar. Após escanear, o bot estará autenticado.</p>
         <p>Se o QR code não aparecer, verifique os logs para mais detalhes.</p>
     `);
