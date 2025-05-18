@@ -11,6 +11,7 @@ const fs = require('fs');
 const qrcode = require('qrcode');
 const qrcodeTerminal = require('qrcode-terminal');
 const express = require('express');
+const path = require('path');
 
 let API_URL;
 try {
@@ -84,23 +85,21 @@ class Bot {
 
                 if (qr) {
                     console.log("📸 Gerando QR Code para escaneamento...");
-                    // Exibir QR Code no terminal de forma compacta e legível
                     qrcodeTerminal.generate(qr, {
-                        small: true, // Modo compacto
-                        white: " ",  // Espaço em branco como fundo
-                        black: "█",  // Caractere sólido para preto
-                        scale: 0.8   // Reduz o tamanho relativo (ajuste fino)
+                        small: true,
+                        white: " ",
+                        black: "█",
+                        scale: 0.8
                     });
                     console.log("\n🔍 Escaneie o QR Code acima com seu telefone. Se estiver muito grande ou confuso, use o arquivo gerado.");
                     console.log("📌 Dica: Ajuste o zoom no seu telefone para escanear com precisão.");
 
-                    // Gerar arquivo QR Code com resolução otimizada
-                    this.qrCodePath = `./qr_code.png`;
+                    this.qrCodePath = path.join(__dirname, 'qr_code.png');
                     await qrcode.toFile(this.qrCodePath, qr, {
-                        width: 300,  // Aumentado para 300x300 pixels para melhor escaneamento
+                        width: 300,
                         height: 300,
-                        margin: 1,   // Margem mínima para evitar cortes
-                        color: { dark: '#000000', light: '#FFFFFF' } // Contraste claro
+                        margin: 1,
+                        color: { dark: '#000000', light: '#FFFFFF' }
                     })
                         .then(() => console.log(`💾 QR Code salvo em: ${this.qrCodePath}. Escaneie com seu telefone!`))
                         .catch(err => console.error("❌ Erro ao salvar QR Code:", err));
@@ -544,6 +543,7 @@ app.get('/healthz', (req, res) => {
     }
 });
 
+// Adicionando a rota /qrcode para servir o arquivo
 app.get('/qrcode', (req, res) => {
     if (!botInstance || !botInstance.qrCodePath || !fs.existsSync(botInstance.qrCodePath)) {
         return res.status(404).send('QR Code não disponível. Aguarde a geração ou verifique os logs.');
@@ -556,24 +556,39 @@ app.get('/qrcode', (req, res) => {
     });
 });
 
-app.get('/', (req, res) => {
+// Nova rota /auth com página HTML estática
+app.get('/auth', (req, res) => {
     if (!botInstance || !botInstance.qrCodePath || !fs.existsSync(botInstance.qrCodePath)) {
-        return res.send(`
-            <h1>QR Code não disponível</h1>
-            <p>Aguarde a geração ou verifique os logs. Tente atualizar a página em alguns segundos.</p>
-        `);
+        return res.status(404).send('QR Code não disponível. Aguarde a geração ou verifique os logs.');
     }
-    res.send(`
-        <h1>Escaneie o QR Code para autenticar o Akira Bot</h1>
-        <img src="/qrcode" alt="QR Code" style="width: 300px; height: 300px;" />
-        <p>Atualize a página se o QR code não carregar. Após escanear, o bot estará autenticado.</p>
-        <p>Se o QR code não aparecer, verifique os logs para mais detalhes.</p>
-    `);
+    const html = `
+        <!DOCTYPE html>
+        <html lang="pt">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Autenticação do Akira Bot</title>
+            <style>
+                body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; background-color: #f0f0f0; }
+                img { max-width: 300px; max-height: 300px; border: 2px solid #000; }
+                p { color: #333; }
+            </style>
+        </head>
+        <body>
+            <h1>Escaneie o QR Code para Autenticar o Akira Bot</h1>
+            <img src="/qrcode" alt="QR Code para Autenticação" />
+            <p>Atualize a página se o QR Code não carregar. Após escanear, o bot estará autenticado.</p>
+            <p>Se o QR Code não aparecer, verifique os logs para mais detalhes.</p>
+        </body>
+        </html>
+    `;
+    res.send(html);
 });
 
-const PORT = process.env.PORT || 3000;
+// Usar a porta fornecida pelo Render
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-    console.log(`🌐 Servidor Express rodando na porta ${PORT}. Acesse http://localhost:${PORT}/ para ver o QR Code.`);
+    console.log(`🌐 Servidor Express rodando na porta ${PORT}. Acesse https://projeto-root.onrender.com/auth para ver o QR Code.`);
 });
 
 if (require.main === module) {
