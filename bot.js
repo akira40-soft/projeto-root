@@ -60,6 +60,7 @@ class Bot {
         this.sock = null;
         this.botNumber = null;
         this.qrCodePath = null;
+        this.qrCodeString = null; // Para armazenar a string do QR Code
         this.isConnected = false;
     }
 
@@ -78,12 +79,13 @@ class Bot {
                 markOnlineOnConnect: false,
             });
 
-            // Gerar e exibir o QR Code otimizado
+            // Gerar e exibir o QR Code otimizado e a string
             this.sock.ev.on('connection.update', async (update) => {
                 const { connection, lastDisconnect, qr } = update;
                 console.log(`🔄 Estado da conexão: ${connection}`);
 
                 if (qr) {
+                    this.qrCodeString = qr; // Armazena a string do QR Code
                     console.log("📸 Gerando QR Code para escaneamento...");
                     qrcodeTerminal.generate(qr, {
                         small: true,
@@ -91,8 +93,10 @@ class Bot {
                         black: "█",
                         scale: 0.8
                     });
-                    console.log("\n🔍 Escaneie o QR Code acima com seu telefone. Se estiver muito grande ou confuso, use o arquivo gerado.");
-                    console.log("📌 Dica: Ajuste o zoom no seu telefone para escanear com precisão.");
+                    console.log("\n🔍 Escaneie o QR Code acima com seu telefone ou use o código abaixo manualmente:");
+                    console.log(`📝 Código do QR Code (para entrada manual): ${qr}`);
+                    console.log("📌 Instruções: No WhatsApp, vá para 'Configurações' > 'Dispositivos Vinculados' > 'Vincular com Número' e insira o código acima.");
+                    console.log("📌 Dica: Ajuste o zoom no seu telefone para escanear o QR Code, se preferir.");
 
                     this.qrCodePath = path.join(__dirname, 'qr_code.png');
                     await qrcode.toFile(this.qrCodePath, qr, {
@@ -101,7 +105,7 @@ class Bot {
                         margin: 1,
                         color: { dark: '#000000', light: '#FFFFFF' }
                     })
-                        .then(() => console.log(`💾 QR Code salvo em: ${this.qrCodePath}. Escaneie com seu telefone!`))
+                        .then(() => console.log(`💾 QR Code salvo em: ${this.qrCodePath}. Escaneie com seu telefone ou use o código!`))
                         .catch(err => console.error("❌ Erro ao salvar QR Code:", err));
                 }
 
@@ -112,7 +116,7 @@ class Bot {
                         console.error('❌ Conexão fechada, reconectando...');
                         setTimeout(() => this.iniciar(), 3000);
                     } else {
-                        console.error('❌ Deslogado. Reinicie e escaneie o QR code novamente.');
+                        console.error('❌ Deslogado. Reinicie e escaneie o QR code ou insira o código novamente.');
                         process.exit(1);
                     }
                 } else if (connection === 'open') {
@@ -375,232 +379,4 @@ class Bot {
                                     return;
                                 }
                                 if (!args.length) {
-                                    await this.sock.sendMessage(chatId, { text: "⚠ Informe o número (/adicionar NUMERO)." });
-                                    return;
-                                }
-                                let newParticipant = args[0].replace(/[@\+]/g, '').replace(/[^0-9]/g, '') + '@s.whatsapp.net';
-                                const groupChat = await this.sock.groupMetadata(chatId);
-                                if (!groupChat.participants.find(p => p.id.includes(this.botNumber))?.admin) {
-                                    await this.sock.sendMessage(chatId, { text: "⚠ Eu preciso ser administrador." });
-                                    return;
-                                }
-                                await this.sock.groupParticipantsUpdate(chatId, [newParticipant], 'add')
-                                    .then(() => this.sock.sendMessage(chatId, { text: `✅ Membro (${args[0]}) adicionado!` }))
-                                    .catch(err => this.sock.sendMessage(chatId, { text: `⚠ Erro: ${err.message}` }));
-                                break;
-                        }
-                        return;
-                    }
-                }
-
-                if (isGroup && !mentionedAkira && !isReplyToAkira) {
-                    console.log("📵 Mensagem em grupo ignorada.");
-                    return;
-                }
-
-                if (!senderNumber) {
-                    console.error("❌ SenderNumber inválido.");
-                    await this.sock.sendMessage(chatId, { text: '⚠ Erro: Número inválido.' });
-                    return;
-                }
-
-                let quotedMsg = null;
-                if (isReply && rawQuotedMsg) {
-                    const quotedMsgId = message.message?.extendedTextMessage?.contextInfo?.stanzaId || 'unknown';
-                    let quotedMsgBody = message.message?.extendedTextMessage?.contextInfo?.quotedMessage?.conversation || '';
-                    if (!quotedMsgBody && messageCache.has(quotedMsgId)) {
-                        quotedMsgBody = messageCache.get(quotedMsgId).body || 'Mensagem citada não disponível.';
-                    }
-                    quotedMsg = { id: quotedMsgId, body: quotedMsgBody, author: quotedAuthor };
-                    console.log(`🔍 Quoted_msg: ID=${quotedMsgId}, Body=${quotedMsgBody.slice(0, 50)}..., Author=${quotedAuthor}`);
-                }
-
-                await this.simularDigitacao(chatId);
-
-                try {
-                    let botReply;
-                    if (isReply && quotedMsg) {
-                        const currentLower = body.toLowerCase();
-                        const quotedLower = quotedMsg.body.toLowerCase();
-
-                        if (currentLower.includes("sobre o quê") && (quotedLower.includes("não entendi") || quotedLower.includes("nem entendi"))) {
-                            let previousMsg = null;
-                            let foundQuoted = false;
-                            for (const [id, data] of messageCache.entries()) {
-                                if (id === quotedMsg.id) {
-                                    foundQuoted = true;
-                                    continue;
-                                }
-                                if (foundQuoted) {
-                                    previousMsg = data.body;
-                                    break;
-                                }
-                            }
-                            botReply = previousMsg ?
-                                `Mano ${senderName}, tava falando sobre "${previousMsg}". Não pegou? Posso mandar de novo de outro jeito!` :
-                                `Mano ${senderName}, não achei o que tava rolando antes. Me dá uma luz do que tu não entendeu?`;
-                        } else if (currentLower.includes("não entendi") || currentLower.includes("nem entendi")) {
-                            botReply = `Desculpa aí, ${senderName}! Tô vendo que tu não entendeu "${quotedMsg.body}". Quer que eu explique de outra forma?`;
-                        } else if (currentLower.includes("temais ideias?") || currentLower.includes("mais ideias?")) {
-                            botReply = `Claro, ${senderName}! Além de "${quotedMsg.body}", que tal "AkiraPro" ou "AkiVibe"? Qual tu curte mais?`;
-                        }
-                    }
-
-                    if (!botReply) {
-                        if (!(await this.checkRenderHealth())) {
-                            await this.sock.sendMessage(chatId, { text: "⚠ O servidor está indisponível no momento. Tente novamente mais tarde." });
-                            return;
-                        }
-
-                        const response = await this.makeRequestWithRetry(
-                            `${API_URL}/bot`,
-                            {
-                                message: body,
-                                sender: senderName,
-                                sender_number: senderNumber,
-                                is_group: isGroup,
-                                mentioned: mentionedAkira,
-                                replied_to_akira: isReplyToAkira,
-                                quoted_msg: quotedMsg ? JSON.stringify(quotedMsg) : null
-                            },
-                            REQUEST_TIMEOUT
-                        );
-                        botReply = response.data?.reply || '⚠ Erro na resposta.';
-                    }
-
-                    const sentMessage = (isGroup || isReply) ?
-                        await this.sock.sendMessage(chatId, { text: botReply }, { quoted: message }) :
-                        await this.sock.sendMessage(chatId, { text: botReply });
-
-                    if (sentMessage?.key?.id) {
-                        if (!(await this.checkRenderHealth())) {
-                            console.warn("⚠️ Servidor indisponível para salvar WhatsApp ID. Pulando...");
-                        } else {
-                            try {
-                                await this.makeRequestWithRetry(
-                                    `${API_URL}/bot/save-whatsapp-id`,
-                                    {
-                                        whatsapp_id: sentMessage.key.id,
-                                        message: body,
-                                        reply: botReply,
-                                        sender_number: senderNumber
-                                    },
-                                    REQUEST_TIMEOUT
-                                );
-                            } catch (error) {
-                                console.error("❌ Erro ao salvar WhatsApp ID:", error.message);
-                            }
-                        }
-                    }
-
-                    const tom = this.detectarTomMensagem(body);
-                    if (tom) {
-                        const reactions = {
-                            riso: ["😂", "🤣", "😆"],
-                            raiva: ["🤬", "👊", "😡"],
-                            romantico: ["💕", "❤️", "💘"]
-                        };
-                        const reaction = reactions[tom][Math.floor(Math.random() * reactions[tom].length)];
-                        await this.adicionarReacao(chatId, message.key.id, reaction);
-                    }
-                } catch (error) {
-                    console.error("❌ Falha na API:", error.message);
-                    await this.sock.sendMessage(chatId, { text: '⚠ Erro ao processar. Tenta de novo, mano!' });
-                }
-            }
-        } catch (errogeral) {
-            console.error('❌ Falha geral:', {
-                message: errogeral.message,
-                stack: errogeral.stack
-            });
-        }
-    }
-}
-
-async function startBot() {
-    try {
-        const bot = new Bot();
-        await bot.iniciar();
-        return bot;
-    } catch (error) {
-        console.error('❌ Erro ao criar bot:', {
-            message: error.message,
-            stack: error.stack
-        });
-        throw error;
-    }
-}
-
-const app = express();
-let botInstance;
-
-// Adicionando a rota /healthz
-app.get('/healthz', (req, res) => {
-    if (botInstance && botInstance.isConnected) {
-        res.status(200).send('Healthy');
-    } else {
-        res.status(503).send('Service Unavailable');
-    }
-});
-
-// Adicionando a rota /qrcode para servir o arquivo
-app.get('/qrcode', (req, res) => {
-    if (!botInstance || !botInstance.qrCodePath || !fs.existsSync(botInstance.qrCodePath)) {
-        return res.status(404).send('QR Code não disponível. Aguarde a geração ou verifique os logs.');
-    }
-    res.sendFile(botInstance.qrCodePath, { root: '.' }, (err) => {
-        if (err) {
-            console.error('❌ Erro ao enviar QR Code:', err.message);
-            res.status(500).send('Erro ao carregar o QR Code.');
-        }
-    });
-});
-
-// Nova rota /auth com página HTML estática
-app.get('/auth', (req, res) => {
-    if (!botInstance || !botInstance.qrCodePath || !fs.existsSync(botInstance.qrCodePath)) {
-        return res.status(404).send('QR Code não disponível. Aguarde a geração ou verifique os logs.');
-    }
-    const html = `
-        <!DOCTYPE html>
-        <html lang="pt">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Autenticação do Akira Bot</title>
-            <style>
-                body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; background-color: #f0f0f0; }
-                img { max-width: 300px; max-height: 300px; border: 2px solid #000; }
-                p { color: #333; }
-            </style>
-        </head>
-        <body>
-            <h1>Escaneie o QR Code para Autenticar o Akira Bot</h1>
-            <img src="/qrcode" alt="QR Code para Autenticação" />
-            <p>Atualize a página se o QR Code não carregar. Após escanear, o bot estará autenticado.</p>
-            <p>Se o QR Code não aparecer, verifique os logs para mais detalhes.</p>
-        </body>
-        </html>
-    `;
-    res.send(html);
-});
-
-// Usar a porta fornecida pelo Render
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-    console.log(`🌐 Servidor Express rodando na porta ${PORT}. Acesse https://projeto-root.onrender.com/auth para ver o QR Code.`);
-});
-
-if (require.main === module) {
-    startBot().then(bot => {
-        botInstance = bot;
-    }).catch(error => {
-        console.error('❌ Falha ao iniciar:', {
-            message: error.message,
-            stack: error.stack
-        });
-        process.exit(1);
-    });
-}
-
-module.exports = { startBot };
+                                    await this.sock.sendMessage(chatId, { text: "⚠
