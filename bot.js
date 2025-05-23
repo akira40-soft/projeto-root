@@ -16,7 +16,7 @@ const path = require('path');
 let API_URL;
 try {
     const config = require('./config');
-    API_URL = config.API_URL || "https://flask-fzw0.onrender.com";
+    API_URL = config.API_URL || "https://flask-ybtc.onrender.com";
     console.log("[INFO] API_URL configurada: " + API_URL);
 } catch (error) {
     console.error("[ERRO] Arquivo 'config.js' não encontrado ou inválido: " + error.message);
