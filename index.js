@@ -39,7 +39,6 @@ const ytdl = require('@distube/ytdl-core');
 const yts = require('yt-search');
 const { Innertube } = require('youtubei.js');
 const ffmpeg = require('fluent-ffmpeg');
-const ffmpegStatic = require('ffmpeg-static');
 const fs = require('fs');
 const path = require('path');
 const { exec, spawn, execSync, execFile } = require('child_process');
@@ -80,8 +79,8 @@ const toMs = require('ms');
   }
 })();
 
-// Binário do FFmpeg a ser usado em chamadas diretas (fallback para nome se não houver estático)
-const FFMPEG_BIN = (ffmpegStatic && typeof ffmpegStatic === 'string' && ffmpegStatic.length > 0) ? ffmpegStatic : 'ffmpeg';
+// Binário do FFmpeg a ser usado em chamadas diretas (usando sistema)
+const FFMPEG_BIN = 'ffmpeg';
 
 // ═══════════════════════════════════════════════════════════════════════
 // CONFIGURAÇÕES E CONSTANTES
