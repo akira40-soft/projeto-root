@@ -12,7 +12,8 @@ RUN apk add --no-cache \
     cairo-dev \
     pango-dev \
     jpeg-dev \
-    giflib-dev
+    giflib-dev \
+    ffmpeg
 # Cria usuário não-root
 RUN addgroup -S app && adduser -S app -G app
 # Define diretório de trabalho
@@ -20,7 +21,8 @@ WORKDIR /app
 # Copia package files
 COPY package*.json ./
 # Instala dependências
-RUN npm install --omit=dev --no-audit
+RUN npm install --omit=dev --no-audit --ignore-scripts && \
+    npm rebuild ffmpeg-static
 # Copia código da aplicação
 COPY index.js ./
 
