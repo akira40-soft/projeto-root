@@ -25,9 +25,6 @@ RUN npm install -g npm@latest && \
 # Copia código da aplicação
 COPY index.js ./
 
-# Copia diretórios necessários
-COPY auth_info_baileys/ ./auth_info_baileys/
-
 # Cria diretórios se necessário
 RUN mkdir -p /app/lib /app/database
 
