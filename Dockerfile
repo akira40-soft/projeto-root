@@ -19,9 +19,8 @@ RUN addgroup -S app && adduser -S app -G app
 WORKDIR /app
 # Copia package files
 COPY package*.json ./
-# Atualiza npm e instala dependências (mudado de 'npm ci' para 'npm install' para gerar package-lock.json se necessário)
-RUN npm install -g npm@latest && \
-    npm install --omit=dev --prefer-offline --no-audit
+# Instala dependências
+RUN npm install --omit=dev --no-audit
 # Copia código da aplicação
 COPY index.js ./
 
