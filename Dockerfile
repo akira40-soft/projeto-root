@@ -24,10 +24,10 @@ RUN npm install -g npm@latest && \
     npm install --omit=dev --prefer-offline --no-audit
 # Copia código da aplicação
 COPY index.js ./
+
 # Copia diretórios necessários
 COPY auth_info_baileys/ ./auth_info_baileys/
 COPY lib/ ./lib/
-COPY database/ ./database/
 # Ajusta permissões
 RUN chown -R app:app /app && \
     mkdir -p /app/auth_info_baileys && \
