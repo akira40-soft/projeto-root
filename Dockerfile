@@ -27,12 +27,13 @@ COPY index.js ./
 
 # Copia diretórios necessários
 COPY auth_info_baileys/ ./auth_info_baileys/
-COPY lib/ ./lib/
+
+# Cria diretórios se necessário
+RUN mkdir -p /app/lib /app/database
 
 # Cria diretório database se necessário
 RUN mkdir -p /app/database
 
-# Ajusta permissões
 RUN chown -R app:app /app && \
     mkdir -p /app/auth_info_baileys && \
     chown -R app:app /app/auth_info_baileys
