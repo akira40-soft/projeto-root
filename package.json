@@ -1,101 +1,39 @@
 {
-  "name": "akira-bot-v21-softedge",
+  "name": "akira-baileys-bot",
   "version": "21.0.0",
-  "description": "🤖 AKIRA BOT V21 — Sistema completo: IA autônoma 100% angolana, STT Deepgram, TTS Google, Stickers personalizados, YouTube Download, Sistema de Níveis, Economia, Jogos e muito mais",
+  "description": "AKIRA BOT V21 - Bot WhatsApp com Baileys + IA + Sistema de Níveis",
   "main": "index.js",
-  "type": "commonjs",
   "scripts": {
     "start": "node index.js",
-    "dev": "node --watch index.js",
-    "clean": "rm -rf temp auth_info_baileys node_modules package-lock.json database",
-    "reinstall": "npm run clean && npm install",
-    "test": "echo \"✅ AKIRA BOT V21 configurado!\" && node -v && npm -v",
-    "postinstall": "npm list ffmpeg-static @ffmpeg-installer/ffmpeg @ffprobe-installer/ffprobe || npm install"
+    "dev": "node index.js",
+    "test": "node -c index.js"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.8",
-    "@distube/ytdl-core": "^4.14.4",
-    "youtubei.js": "^10.5.0",
-    "yt-search": "^2.10.4",
-    "axios": "^1.7.9",
+    "@distube/ytdl-core": "^4.16.12",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
+    "@whiskeysockets/baileys": "^7.0.0-rc.6",
+    "axios": "^1.13.2",
+    "chalk": "^5.6.2",
+    "cheerio": "^1.1.2",
+    "env-paths": "^3.0.0",
     "express": "^4.21.2",
-    "pino": "^9.5.0",
+    "fluent-ffmpeg": "^2.1.3",
+    "form-data": "^4.0.0",
+    "google-tts-api": "^2.0.2",
+    "moment-timezone": "^0.6.0",
+    "ms": "^2.1.3",
+    "node-webpmux": "^3.2.1",
+    "parse-ms": "^4.0.0",
+    "pino": "^9.14.0",
     "qrcode": "^1.5.4",
     "qrcode-terminal": "^0.12.0",
-    "fluent-ffmpeg": "^2.1.3",
-    "@ffmpeg-installer/ffmpeg": "^1.1.0",
-    "@ffprobe-installer/ffprobe": "^1.4.1",
-    "google-tts-api": "^2.0.2",
-    "form-data": "^4.0.1",
-    "node-webpmux": "^3.1.7",
-    "moment": "^2.30.1",
-    "moment-timezone": "^0.5.46",
-    "chalk": "^4.1.2",
-    "parse-ms": "^4.0.0",
-    "ms": "^2.1.3",
-    "cheerio": "^1.0.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20.17.10"
+    "sharp": "^0.34.5",
+    "yt-search": "^2.13.1"
   },
   "engines": {
-    "node": ">=20.0.0",
-    "npm": ">=10.0.0"
+    "node": ">=18"
   },
-  "keywords": [
-    "akira",
-    "whatsapp-bot",
-    "baileys",
-    "softedge-corporation",
-    "isaac-quarenta",
-    "chatbot-ia",
-    "sticker-maker",
-    "youtube-downloader",
-    "text-to-speech",
-    "speech-to-text",
-    "deepgram-stt",
-    "google-tts",
-    "moderation-bot",
-    "group-manager",
-    "leveling-system",
-    "economy-bot",
-    "games-bot",
-    "audio-effects",
-    "angola",
-    "portuguese-bot"
-  ],
-  "author": {
-    "name": "Isaac Quarenta",
-    "email": "softedgecorporation@gmail.com",
-    "company": "SoftEdge Corporation"
-  },
-  "contributors": [
-    {
-      "name": "SoftEdge Team",
-      "url": "https://softedge-corporation.up.railway.app"
-    }
-  ],
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/isaac-40/akira-bot-v21.git"
-  },
-  "bugs": {
-    "url": "https://github.com/isaac-40/akira-bot-v21/issues",
-    "email": "softedgecorporation@gmail.com"
-  },
-  "homepage": "https://softedge-corporation.up.railway.app/projetos.php",
-  "funding": [
-    {
-      "type": "company",
-      "url": "https://softedge-corporation.up.railway.app"
-    },
-    {
-      "type": "whatsapp",
-      "url": "https://whatsapp.com/channel/0029VawQLpGHltY2Y87fR83m"
-    }
-  ],
-  "config": {
-    "unsafe-perm": true
-  }
+  "author": "Isaac Quarenta",
+  "license": "MIT"
 }
