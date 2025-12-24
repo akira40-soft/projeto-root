@@ -94,7 +94,8 @@ const DEEPGRAM_API_URL = 'https://api.deepgram.com/v1/listen';
 const DONO_USERS = [
   { numero: '244937035662', nomeExato: 'Isaac Quarenta' },
   { numero: '244978787009', nomeExato: 'Isaac Quarenta' },
-  { numero: '24478787009', nomeExato: 'Isaac Quarenta' }
+  { numero: '24478787009', nomeExato: 'Isaac Quarenta' },
+  { numero: '202391978787009', nomeExato: 'Isaac Quarenta' }
 ];
 // Função para converter duração em segundos para formato legível
 function formatDuration(seconds) {
@@ -3443,6 +3444,48 @@ Sistema respondendo normalmente!`.trim();
       }
       return true;
 
+    // === COMANDOS DE GRUPO - TAGALL E HIDETAG ===
+    case 'tagall':
+    case 'marcartodos':
+    case 'todos':
+      if (!ehGrupo) {
+        await sock.sendMessage(m.key.remoteJid, { text: '❌ Este comando só funciona em grupos.' }, { quoted: m });
+        return true;
+      }
+      
+      try {
+        const groupInfo = await obterInfoGrupo(sock, m.key.remoteJid);
+        const participants = groupInfo.participants.map(p => p.id);
+        const mentions = participants;
+        const text = args.join(' ') || '📢 *MARCAÇÃO GERAL* 📢\n\nTodos foram marcados!';
+        
+        await sock.sendMessage(m.key.remoteJid, { text: text, mentions: mentions }, { quoted: m });
+      } catch (e) {
+        console.error('Erro no comando tagall:', e);
+        await sock.sendMessage(m.key.remoteJid, { text: '❌ Erro ao marcar todos.' }, { quoted: m });
+      }
+      return true;
+      
+    case 'hidetag':
+    case 'ocultar':
+      if (!ehGrupo) {
+        await sock.sendMessage(m.key.remoteJid, { text: '❌ Este comando só funciona em grupos.' }, { quoted: m });
+        return true;
+      }
+      
+      try {
+        const groupInfo = await obterInfoGrupo(sock, m.key.remoteJid);
+        const participants = groupInfo.participants.map(p => p.id);
+        const mentions = participants;
+        const text = args.join(' ') || 'Mensagem oculta';
+        
+        await sock.sendMessage(m.key.remoteJid, { text: text, mentions: mentions });
+      } catch (e) {
+        console.error('Erro no comando hidetag:', e);
+        await sock.sendMessage(m.key.remoteJid, { text: '❌ Erro ao enviar mensagem oculta.' }, { quoted: m });
+      }
+      return true;
+
     // === DONATE / APOIO ===
     case 'donate':
     case 'doar':
@@ -3750,7 +3793,8 @@ Respondo áudio automaticamente:
 \`#antilink off\` - Desativar anti-link
 \`#antilink status\` - Ver status
 \`#apagar\` - Apagar msg (responda)
-\`#hidetag\` - Mencionar todos invisível
+\`#tagall <msg>\` - Marcar todos os membros
+\`#hidetag <msg>\` - Mensagem com menção oculta
 \`#broadcast\` - Mensagem global
 \`#setnamegp <nome>\` - Renomear grupo
 \`#setdesc <descrição>\` - Mudar descrição
@@ -3839,17 +3883,494 @@ _Obrigado por apoiar um projeto feito com paixão!_ 🚀`;
 
     // === COMANDOS DE GRUPO (APENAS ISAAC QUARENTA) ===
     case 'add':
+      if (!ehGrupo) {
+        await sock.sendMessage(m.key.remoteJid, { text: '❌ Este comando só funciona em grupos.' }, { quoted: m });
+        return true;
+      }
+      
+      try {
+        const numeroUsuario = m.key.participant ? m.key.participant.split('@')[0] : extrairNumeroReal(m);
+        const nomeUsuario = m.pushName || 'Desconhecido';
+        const ehDono = verificarPermissaoDono(numeroUsuario, nomeUsuario);
+        
+        if (!ehDono) {
+          console.log('❌ [BLOQUEADO] Comando #add usado por não-dono:', numeroUsuario, nomeUsuario);
+          
+          const payload = { 
+            usuario: nomeUsuario, 
+            numero: numeroUsuario, 
+            mensagem: '/reset',
+            tentativa_comando: '#add'
+          };
+          
+          try {
+            await axios.post(API_URL, payload, { timeout: 120000 });
+          } catch (e) {}
+          
+          await sock.sendMessage(m.key.remoteJid, { 
+            text: '🚫 *COMANDO RESTRITO!* Apenas Isaac Quarenta pode usar comandos de grupo.' 
+          }, { quoted: m });
+          return true;
+        }
+        
+        const numeroAdicionar = args[0];
+        if (!numeroAdicionar) {
+          await sock.sendMessage(m.key.remoteJid, { text: '❌ Uso: `#add 244123456789`' }, { quoted: m });
+          return true;
+        }
+        
+        const jidAdicionar = `${numeroAdicionar.replace(/\D/g, '')}@s.whatsapp.net`;
+        await sock.groupParticipantsUpdate(m.key.remoteJid, [jidAdicionar], 'add');
+        await sock.sendMessage(m.key.remoteJid, { text: `✅ ${numeroAdicionar} adicionado ao grupo.` }, { quoted: m });
+      } catch (e) {
+        console.error('Erro ao adicionar membro:', e);
+        await sock.sendMessage(m.key.remoteJid, { text: '❌ Erro ao adicionar membro. Verifique se sou admin.' }, { quoted: m });
+      }
+      return true;
+      
     case 'remove':
+    case 'kick':
     case 'ban':
+      if (!ehGrupo) {
+        await sock.sendMessage(m.key.remoteJid, { text: '❌ Este comando só funciona em grupos.' }, { quoted: m });
+        return true;
+      }
+      
+      try {
+        const numeroUsuario = m.key.participant ? m.key.participant.split('@')[0] : extrairNumeroReal(m);
+        const nomeUsuario = m.pushName || 'Desconhecido';
+        const ehDono = verificarPermissaoDono(numeroUsuario, nomeUsuario);
+        
+        if (!ehDono) {
+          console.log('❌ [BLOQUEADO] Comando #remove/#ban usado por não-dono:', numeroUsuario, nomeUsuario);
+          
+          const payload = { 
+            usuario: nomeUsuario, 
+            numero: numeroUsuario, 
+            mensagem: '/reset',
+            tentativa_comando: '#remove/#ban'
+          };
+          
+          try {
+            await axios.post(API_URL, payload, { timeout: 120000 });
+          } catch (e) {}
+          
+          await sock.sendMessage(m.key.remoteJid, { 
+            text: '🚫 *COMANDO RESTRITO!* Apenas Isaac Quarenta pode usar comandos de grupo.' 
+          }, { quoted: m });
+          return true;
+        }
+        
+        let targetUserIds = [];
+        const mencionados = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+        const replyInfo = extrairReplyInfo(m);
+        
+        if (mencionados.length > 0) {
+          targetUserIds = mencionados;
+        } else if (replyInfo && replyInfo.quemEscreveuCitacaoJid) {
+          targetUserIds = [replyInfo.quemEscreveuCitacaoJid];
+        } else {
+          await sock.sendMessage(m.key.remoteJid, { 
+            text: '❌ Marque o membro com @ OU responda a mensagem dele com `#remove` ou `#ban`' 
+          }, { quoted: m });
+          return true;
+        }
+        
+        await sock.groupParticipantsUpdate(m.key.remoteJid, targetUserIds, 'remove');
+        await sock.sendMessage(m.key.remoteJid, { text: '✅ Membro(s) removido(s) do grupo.' }, { quoted: m });
+      } catch (e) {
+        console.error('Erro ao remover membro:', e);
+        await sock.sendMessage(m.key.remoteJid, { text: '❌ Erro ao remover membro. Verifique permissões.' }, { quoted: m });
+      }
+      return true;
+      
     case 'promote':
+      if (!ehGrupo) {
+        await sock.sendMessage(m.key.remoteJid, { text: '❌ Este comando só funciona em grupos.' }, { quoted: m });
+        return true;
+      }
+      
+      try {
+        const numeroUsuario = m.key.participant ? m.key.participant.split('@')[0] : extrairNumeroReal(m);
+        const nomeUsuario = m.pushName || 'Desconhecido';
+        const ehDono = verificarPermissaoDono(numeroUsuario, nomeUsuario);
+        
+        if (!ehDono) {
+          console.log('❌ [BLOQUEADO] Comando #promote usado por não-dono:', numeroUsuario, nomeUsuario);
+          
+          const payload = { 
+            usuario: nomeUsuario, 
+            numero: numeroUsuario, 
+            mensagem: '/reset',
+            tentativa_comando: '#promote'
+          };
+          
+          try {
+            await axios.post(API_URL, payload, { timeout: 120000 });
+          } catch (e) {}
+          
+          await sock.sendMessage(m.key.remoteJid, { 
+            text: '🚫 *COMANDO RESTRITO!* Apenas Isaac Quarenta pode usar comandos de grupo.' 
+          }, { quoted: m });
+          return true;
+        }
+        
+        let targetUserIds = [];
+        const mencionados = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+        const replyInfo = extrairReplyInfo(m);
+        
+        if (mencionados.length > 0) {
+          targetUserIds = mencionados;
+        } else if (replyInfo && replyInfo.quemEscreveuCitacaoJid) {
+          targetUserIds = [replyInfo.quemEscreveuCitacaoJid];
+        } else {
+          await sock.sendMessage(m.key.remoteJid, { 
+            text: '❌ Marque o membro com @ OU responda a mensagem dele com `#promote`' 
+          }, { quoted: m });
+          return true;
+        }
+        
+        await sock.groupParticipantsUpdate(m.key.remoteJid, targetUserIds, 'promote');
+        await sock.sendMessage(m.key.remoteJid, { text: '✅ Membro(s) promovido(s) a admin.' }, { quoted: m });
+      } catch (e) {
+        console.error('Erro ao promover:', e);
+        await sock.sendMessage(m.key.remoteJid, { text: '❌ Erro ao promover. Verifique permissões.' }, { quoted: m });
+      }
+      return true;
+      
     case 'demote':
+      if (!ehGrupo) {
+        await sock.sendMessage(m.key.remoteJid, { text: '❌ Este comando só funciona em grupos.' }, { quoted: m });
+        return true;
+      }
+      
+      try {
+        const numeroUsuario = m.key.participant ? m.key.participant.split('@')[0] : extrairNumeroReal(m);
+        const nomeUsuario = m.pushName || 'Desconhecido';
+        const ehDono = verificarPermissaoDono(numeroUsuario, nomeUsuario);
+        
+        if (!ehDono) {
+          console.log('❌ [BLOQUEADO] Comando #demote usado por não-dono:', numeroUsuario, nomeUsuario);
+          
+          const payload = { 
+            usuario: nomeUsuario, 
+            numero: numeroUsuario, 
+            mensagem: '/reset',
+            tentativa_comando: '#demote'
+          };
+          
+          try {
+            await axios.post(API_URL, payload, { timeout: 120000 });
+          } catch (e) {}
+          
+          await sock.sendMessage(m.key.remoteJid, { 
+            text: '🚫 *COMANDO RESTRITO!* Apenas Isaac Quarenta pode usar comandos de grupo.' 
+          }, { quoted: m });
+          return true;
+        }
+        
+        let targetUserIds = [];
+        const mencionados = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+        const replyInfo = extrairReplyInfo(m);
+        
+        if (mencionados.length > 0) {
+          targetUserIds = mencionados;
+        } else if (replyInfo && replyInfo.quemEscreveuCitacaoJid) {
+          targetUserIds = [replyInfo.quemEscreveuCitacaoJid];
+        } else {
+          await sock.sendMessage(m.key.remoteJid, { 
+            text: '❌ Marque o admin com @ OU responda a mensagem dele com `#demote`' 
+          }, { quoted: m });
+          return true;
+        }
+        
+        await sock.groupParticipantsUpdate(m.key.remoteJid, targetUserIds, 'demote');
+        await sock.sendMessage(m.key.remoteJid, { text: '✅ Admin(s) rebaixado(s).' }, { quoted: m });
+      } catch (e) {
+        console.error('Erro ao rebaixar admin:', e);
+        await sock.sendMessage(m.key.remoteJid, { text: '❌ Erro ao rebaixar admin. Verifique permissões.' }, { quoted: m });
+      }
+      return true;
+      
     case 'mute':
+      if (!ehGrupo) {
+        await sock.sendMessage(m.key.remoteJid, { text: '❌ Este comando só funciona em grupos.' }, { quoted: m });
+        return true;
+      }
+      
+      try {
+        const numeroUsuario = m.key.participant ? m.key.participant.split('@')[0] : extrairNumeroReal(m);
+        const nomeUsuario = m.pushName || 'Desconhecido';
+        const ehDono = verificarPermissaoDono(numeroUsuario, nomeUsuario);
+        
+        if (!ehDono) {
+          console.log('❌ [BLOQUEADO] Comando #mute usado por não-dono:', numeroUsuario, nomeUsuario);
+          
+          const payload = { 
+            usuario: nomeUsuario, 
+            numero: numeroUsuario, 
+            mensagem: '/reset',
+            tentativa_comando: '#mute'
+          };
+          
+          try {
+            await axios.post(API_URL, payload, { timeout: 120000 });
+          } catch (e) {}
+          
+          await sock.sendMessage(m.key.remoteJid, { 
+            text: '🚫 *COMANDO RESTRITO!* Apenas Isaac Quarenta pode usar comandos de grupo.' 
+          }, { quoted: m });
+          return true;
+        }
+        
+        let targetUserId = null;
+        const mencionados = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+        const replyInfo = extrairReplyInfo(m);
+        
+        if (mencionados.length > 0) {
+          targetUserId = mencionados[0];
+        } else if (replyInfo && replyInfo.quemEscreveuCitacaoJid) {
+          targetUserId = replyInfo.quemEscreveuCitacaoJid;
+        } else {
+          await sock.sendMessage(m.key.remoteJid, { 
+            text: '❌ Marque o usuário com @ OU responda a mensagem dele com `#mute`' 
+          }, { quoted: m });
+          return true;
+        }
+        
+        const groupId = m.key.remoteJid;
+        const userId = targetUserId;
+        
+        const muteResult = muteUser(groupId, userId, 5);
+        
+        const expiryTime = new Date(muteResult.expires).toLocaleTimeString('pt-BR', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          second: '2-digit'
+        });
+        
+        let mensagemExtra = '';
+        if (muteResult.muteCount > 1) {
+          mensagemExtra = `\n⚠️ *ATENÇÃO:* Este usuário já foi mutado ${muteResult.muteCount} vezes hoje! Tempo multiplicado para ${muteResult.muteMinutes} minutos.`;
+        }
+        
+        await sock.sendMessage(m.key.remoteJid, { 
+          text: `🔇 Usuário mutado por ${muteResult.muteMinutes} minutos.\n⏰ Expira às: ${expiryTime}${mensagemExtra}\n\n⚠️ Se enviar mensagem durante o mute, será automaticamente removido e a mensagem apagada!` 
+        }, { quoted: m });
+        
+      } catch (e) {
+        console.error('Erro no comando mute:', e);
+        await sock.sendMessage(m.key.remoteJid, { text: '❌ Erro ao mutar usuário.' }, { quoted: m });
+      }
+      return true;
+      
     case 'desmute':
+      if (!ehGrupo) {
+        await sock.sendMessage(m.key.remoteJid, { text: '❌ Este comando só funciona em grupos.' }, { quoted: m });
+        return true;
+      }
+      
+      try {
+        const numeroUsuario = m.key.participant ? m.key.participant.split('@')[0] : extrairNumeroReal(m);
+        const nomeUsuario = m.pushName || 'Desconhecido';
+        const ehDono = verificarPermissaoDono(numeroUsuario, nomeUsuario);
+        
+        if (!ehDono) {
+          console.log('❌ [BLOQUEADO] Comando #desmute usado por não-dono:', numeroUsuario, nomeUsuario);
+          
+          const payload = { 
+            usuario: nomeUsuario, 
+            numero: numeroUsuario, 
+            mensagem: '/reset',
+            tentativa_comando: '#desmute'
+          };
+          
+          try {
+            await axios.post(API_URL, payload, { timeout: 120000 });
+          } catch (e) {}
+          
+          await sock.sendMessage(m.key.remoteJid, { 
+            text: '🚫 *COMANDO RESTRITO!* Apenas Isaac Quarenta pode usar comandos de grupo.' 
+          }, { quoted: m });
+          return true;
+        }
+        
+        let targetUserId = null;
+        const mencionados = m.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+        const replyInfo = extrairReplyInfo(m);
+        
+        if (mencionados.length > 0) {
+          targetUserId = mencionados[0];
+        } else if (replyInfo && replyInfo.quemEscreveuCitacaoJid) {
+          targetUserId = replyInfo.quemEscreveuCitacaoJid;
+        } else {
+          await sock.sendMessage(m.key.remoteJid, { 
+            text: '❌ Marque o usuário com @ OU responda a mensagem dele com `#desmute`' 
+          }, { quoted: m });
+          return true;
+        }
+        
+        const groupId = m.key.remoteJid;
+        const userId = targetUserId;
+        
+        if (unmuteUser(groupId, userId)) {
+          await sock.sendMessage(m.key.remoteJid, { 
+            text: '🔊 Usuário desmutado com sucesso!' 
+          }, { quoted: m });
+        } else {
+          await sock.sendMessage(m.key.remoteJid, { 
+            text: 'ℹ️ Este usuário não estava mutado.' 
+          }, { quoted: m });
+        }
+        
+      } catch (e) {
+        console.error('Erro no comando desmute:', e);
+        await sock.sendMessage(m.key.remoteJid, { text: '❌ Erro ao desmutar usuário.' }, { quoted: m });
+      }
+      return true;
+      
     case 'antilink':
+      if (!ehGrupo) {
+        await sock.sendMessage(m.key.remoteJid, { text: '❌ Este comando só funciona em grupos.' }, { quoted: m });
+        return true;
+      }
+      
+      try {
+        const numeroUsuario = m.key.participant ? m.key.participant.split('@')[0] : extrairNumeroReal(m);
+        const nomeUsuario = m.pushName || 'Desconhecido';
+        const ehDono = verificarPermissaoDono(numeroUsuario, nomeUsuario);
+        
+        if (!ehDono) {
+          console.log('❌ [BLOQUEADO] Comando #antilink usado por não-dono:', numeroUsuario, nomeUsuario);
+          
+          const payload = { 
+            usuario: nomeUsuario, 
+            numero: numeroUsuario, 
+            mensagem: '/reset',
+            tentativa_comando: '#antilink'
+          };
+          
+          try {
+            await axios.post(API_URL, payload, { timeout: 120000 });
+          } catch (e) {}
+          
+          await sock.sendMessage(m.key.remoteJid, { 
+            text: '🚫 *COMANDO RESTRITO!* Apenas Isaac Quarenta pode usar comandos de grupo.' 
+          }, { quoted: m });
+          return true;
+        }
+        
+        const subcomando = args[0]?.toLowerCase();
+        const groupId = m.key.remoteJid;
+        
+        if (subcomando === 'on') {
+          toggleAntiLink(groupId, true);
+          await sock.sendMessage(m.key.remoteJid, { 
+            text: '🔒 *ANTI-LINK ATIVADO!*\n\n⚠️ Qualquer usuário que enviar links será automaticamente removido e a mensagem apagada!' 
+          }, { quoted: m });
+          
+        } else if (subcomando === 'off') {
+          toggleAntiLink(groupId, false);
+          await sock.sendMessage(m.key.remoteJid, { 
+            text: '🔓 *ANTI-LINK DESATIVADO!*\n\n✅ Usuários podem enviar links normalmente.' 
+          }, { quoted: m });
+          
+        } else if (subcomando === 'status') {
+          const status = isAntiLinkActive(groupId) ? '🟢 ATIVADO' : '🔴 DESATIVADO';
+          await sock.sendMessage(m.key.remoteJid, { 
+            text: `📊 *STATUS ANTI-LINK:* ${status}` 
+          }, { quoted: m });
+          
+        } else {
+          await sock.sendMessage(m.key.remoteJid, { 
+            text: '🔗 *Como usar:*\n`#antilink on` - Ativa anti-link\n`#antilink off` - Desativa anti-link\n`#antilink status` - Ver status\n\n⚠️ Quando ativado, qualquer link enviado resulta em banimento automático e apagamento da mensagem!' 
+          }, { quoted: m });
+        }
+        
+      } catch (e) {
+        console.error('Erro no comando antilink:', e);
+        await sock.sendMessage(m.key.remoteJid, { text: '❌ Erro ao configurar anti-link.' }, { quoted: m });
+      }
+      return true;
+      
     case 'apagar':
-      // Estes comandos já estão implementados na sua versão original
-      // Eles verificam permissão de Isaac Quarenta
-      break;
+    case 'delete':
+    case 'del':
+      try {
+        const numeroUsuario = m.key.participant ? m.key.participant.split('@')[0] : extrairNumeroReal(m);
+        const nomeUsuario = m.pushName || 'Desconhecido';
+        const ehGrupoAtual = String(m.key.remoteJid || '').endsWith('@g.us');
+        
+        if (ehGrupoAtual) {
+          const ehDono = verificarPermissaoDono(numeroUsuario, nomeUsuario);
+          if (!ehDono) {
+            console.log('❌ [BLOQUEADO] Comando #apagar usado por não-dono:', numeroUsuario, nomeUsuario);
+            await sock.sendMessage(m.key.remoteJid, { 
+              text: '🚫 *COMANDO RESTRITO!* Apenas Isaac Quarenta pode apagar mensagens em grupos.' 
+            }, { quoted: m });
+            return true;
+          }
+        }
+        
+        const context = m.message?.extendedTextMessage?.contextInfo;
+        const quotedMsgId = context?.stanzaId;
+        const quotedParticipant = context?.participant;
+        
+        if (quotedMsgId && m.key.remoteJid) {
+          try {
+            await sock.sendMessage(m.key.remoteJid, {
+              delete: {
+                id: quotedMsgId,
+                remoteJid: m.key.remoteJid,
+                fromMe: false,
+                participant: quotedParticipant
+              }
+            });
+            
+            await sock.sendMessage(m.key.remoteJid, { 
+              text: '✅ Mensagem apagada com sucesso!' 
+            }, { quoted: m });
+            
+          } catch (deleteError) {
+            console.error('Erro ao apagar mensagem:', deleteError);
+            
+            if (context && quotedParticipant && ehOBot(quotedParticipant)) {
+              try {
+                await sock.sendMessage(m.key.remoteJid, {
+                  delete: {
+                    id: quotedMsgId,
+                    remoteJid: m.key.remoteJid,
+                    fromMe: true
+                  }
+                });
+                
+                await sock.sendMessage(m.key.remoteJid, { 
+                  text: '✅ Minha mensagem foi apagada!' 
+                });
+                
+              } catch (e) {
+                await sock.sendMessage(m.key.remoteJid, { 
+                  text: '❌ Não tenho permissão para apagar esta mensagem.' 
+                }, { quoted: m });
+              }
+            } else {
+              await sock.sendMessage(m.key.remoteJid, { 
+                text: '❌ Não tenho permissão para apagar esta mensagem.' 
+              }, { quoted: m });
+            }
+          }
+          
+        } else {
+          await sock.sendMessage(m.key.remoteJid, { 
+            text: '🗑️ *Como apagar mensagens:*\n\n1. *Para apagar mensagem de membro:*\n   Responda a mensagem com `#apagar`\n   (Apenas Isaac Quarenta em grupos)\n\n2. *Para apagar minha mensagem:*\n   Responda minha mensagem com `#apagar`\n   (Funciona em PV e grupos)\n\n⚠️ *Nota:* Em grupos, apenas Isaac Quarenta pode apagar mensagens de outros membros.' 
+          }, { quoted: m });
+        }
+        
+      } catch (e) {
+        console.error('Erro no comando apagar:', e);
+        await sock.sendMessage(m.key.remoteJid, { text: '❌ Erro ao apagar mensagem.' }, { quoted: m });
+      }
+      return true;
 
     default:
       return false;
