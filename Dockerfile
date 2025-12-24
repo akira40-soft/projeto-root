@@ -9,6 +9,8 @@ ENV NODE_ENV=production \
 RUN apt-get update && apt-get install -y \
     git \
     python3 \
+    python3-dev \
+    build-essential \
     make \
     g++ \
     libcairo2-dev \
@@ -29,7 +31,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instala dependências
-RUN npm install --omit=dev --no-audit --ignore-scripts && \
+RUN npm install --production --no-audit --ignore-scripts && \
     npm rebuild ffmpeg-static || true
 
 # Copia código da aplicação
