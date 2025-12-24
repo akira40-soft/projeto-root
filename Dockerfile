@@ -31,7 +31,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instala dependências
-RUN npm install --production --no-audit --ignore-scripts && \
+RUN npm install --production --no-audit && \
     npm rebuild ffmpeg-static || true
 
 # Copia código da aplicação
