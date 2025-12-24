@@ -79,7 +79,7 @@ const FFMPEG_BIN = ffmpegInstaller.path;
 // CONFIGURAÇÕES E CONSTANTES
 // ═══════════════════════════════════════════════════════════════════════
 const PORT = process.env.PORT || 3000;
-const API_URL = process.env.API_URL || 'https://akra35567-AKIRA-SOFTEDGE.hf.space/api/akira';
+const API_URL = process.env.API_URL || 'https://akra35567-akira.hf.space/api/akira';
 const BOT_NUMERO_REAL = '37839265886398';
 const PREFIXO = '#'; // Prefixo para comandos extras
 const TEMP_FOLDER = './temp';
@@ -1449,196 +1449,74 @@ function findYtDlp() {
   }
 }
 // Fallback robusto: baixar áudio com yt-dlp (mp3)
-async function downloadYTAudio(url) {
-  try {
-    console.log('🎵 Iniciando download de áudio do YouTube...');
-   
-    // Extrair ID do vídeo
-    let videoId = '';
-    if (url.includes('youtube.com/watch?v=')) {
-      videoId = url.split('v=')[1]?.split('&')[0];
-    } else if (url.includes('youtu.be/')) {
-      videoId = url.split('youtu.be/')[1]?.split('?')[0];
-    } else if (url.includes('youtube.com/shorts/')) {
-      videoId = url.split('shorts/')[1]?.split('?')[0];
-    }
-   
-    if (!videoId || videoId.length !== 11) {
-      return { error: 'URL do YouTube inválida' };
-    }
-   
-    console.log(`📹 Video ID: ${videoId}`);
-    
-    // MÉTODO MELHORADO: yt-dlp com formato flexível
-    try {
-      console.log('📤 Baixando áudio do YouTube...');
-      
-      // Usar nome de arquivo temporário
-      const tempDir = path.join(__dirname, 'temp');
-      const outputFile = path.join(tempDir, `audio_${Date.now()}.%(ext)s`);
-      
-      // Garantir que diretório temp existe
-      if (!fs.existsSync(tempDir)) {
-        fs.mkdirSync(tempDir, { recursive: true });
-      }
-      
-      // Comando melhorado - mais flexível com formatos
-      const command = [
-        'yt-dlp',
-        '-f', 'bestaudio/best',
-        '--extract-audio',
-        '--audio-format', 'mp3',
-        '--audio-quality', '0',
-        '--no-playlist',
-        '--max-filesize', '25M',
-        '--no-warnings',
-        '-o', `"${outputFile}"`,
-        `"${url}"`
-      ].join(' ');
-
-      
-      console.log('🔍 Executando yt-dlp...');
-      
-      await new Promise((resolve, reject) => {
-        exec(command, { 
-          cwd: __dirname, 
-          timeout: 120000, 
-          maxBuffer: 20 * 1024 * 1024,
-          encoding: 'utf8'
-        }, (error, stdout, stderr) => {
-          if (stderr && !stderr.includes('WARNING:')) {
-            console.error(`Stderr: ${stderr}`);
-          }
-          
-          if (error) {
-            console.error(`❌ Erro ao executar yt-dlp: ${error.message}`);
-            reject(error);
-          } else {
-            resolve({ stdout });
-          }
-        });
-      });
-      
-      // Encontrar o arquivo baixado (yt-dlp adiciona extensão automaticamente)
-      const files = fs.readdirSync(tempDir);
-      const downloadedFile = files.find(f => f.includes(`audio_${videoId}`) || f.startsWith('audio_'));
-      
-      if (!downloadedFile) {
-        throw new Error('Arquivo não foi criado');
-      }
-      
-      const audioPath = path.join(tempDir, downloadedFile);
-      
-      // Verificar se o arquivo foi criado
-      if (!fs.existsSync(audioPath)) {
-        throw new Error(`Arquivo não encontrado: ${audioPath}`);
-      }
-      
-      // Verificar tamanho
-      const stats = fs.statSync(audioPath);
-      
-      if (stats.size === 0) {
-        fs.unlinkSync(audioPath);
-        throw new Error('Arquivo vazio');
-      }
-      
-      if (stats.size > 25 * 1024 * 1024) {
-        fs.unlinkSync(audioPath);
-        return { error: 'Arquivo muito grande (>25MB). Tente um vídeo mais curto.' };
-      }
-      
-      console.log(`📦 Arquivo baixado: ${(stats.size / 1024 / 1024).toFixed(2)}MB`);
-      
-      const audioBuffer = fs.readFileSync(audioPath);
-      fs.unlinkSync(audioPath);
-     
-      // Obter metadados
-      let title = 'Música do YouTube';
-      let author = 'Desconhecido';
-      let duration = 0;
-     
-      try {
-        const infoCommand = `yt-dlp --print "%(title)s|%(uploader)s|%(duration)s" --no-playlist "${url}"`;
-        const infoOutput = execSync(infoCommand, { cwd: __dirname, timeout: 30000, encoding: 'utf8' }).trim();
-        const [t, a, d] = infoOutput.split('|');
-        title = t || title;
-        author = a || author;
-        duration = parseInt(d) || duration;
-       
-        if (duration > 1200) {
-          return { error: `Vídeo muito longo (${Math.floor(duration/60)} minutos). Máximo 20 minutos.` };
-        }
-      } catch (infoError) {
-        console.log('⚠️ Não foi possível obter metadados completos');
-      }
-     
-      console.log('✅ Download concluído via yt-dlp!');
-      return {
-        buffer: audioBuffer,
-        title: title,
-        duration: duration,
-        author: author,
-        videoId: videoId
-      };
-     
-    } catch (ytdlpError) {
-      console.error('❌ yt-dlp falhou:', ytdlpError.message);
-      
-      // FALLBACK: Tentar com ytdl-core
-      console.log('🔄 Tentando método alternativo: ytdl-core...');
-      try {
-        const info = await ytdl.getInfo(videoId, {
-          requestOptions: {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-          }
-        });
-        
-        // Encontrar o melhor formato de áudio
-        const audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
-        if (audioFormats.length === 0) {
-          throw new Error('Nenhum formato de áudio encontrado');
-        }
-        
-        // Escolher o formato com melhor qualidade
-        const format = audioFormats.find(f => f.hasAudio && !f.hasVideo) || audioFormats[0];
-        
-        const tempPath = path.join(__dirname, 'temp', `audio_${Date.now()}.mp3`);
-        const writeStream = fs.createWriteStream(tempPath);
-        
-        await new Promise((resolve, reject) => {
-          ytdl.downloadFromInfo(info, { format: format })
-            .pipe(writeStream)
-            .on('finish', resolve)
-            .on('error', reject);
-        });
-        
-        const stats = fs.statSync(tempPath);
-        if (stats.size > 0 && stats.size < 25 * 1024 * 1024) {
-          console.log('✅ Fallback com ytdl-core funcionou!');
-          const audioBuffer = fs.readFileSync(tempPath);
-          fs.unlinkSync(tempPath);
-          
-          return {
-            buffer: audioBuffer,
-            title: info.videoDetails.title || 'Música do YouTube',
-            duration: parseInt(info.videoDetails.lengthSeconds) || 0,
-            author: info.videoDetails.author?.name || 'Desconhecido',
-            videoId: videoId
-          };
-        }
-      } catch (fallbackError) {
-        console.error('❌ ytdl-core também falhou:', fallbackError.message);
-      }
-      
-      return { error: 'Falha ao baixar o áudio. Tente outro vídeo.' };
-    }
-    
-  } catch (e) {
-    console.error('❌ Erro geral no downloadYTAudio:', e.message);
-    return { error: 'Erro ao processar: ' + e.message };
+async function downloadWithYtDlp(url) {
+  console.log('🔄 Método 2: yt-dlp (fallback)...');
+  const tool = findYtDlp();
+  if (!tool) {
+    return { error: 'Dependência ausente: yt-dlp não encontrado. Instale com "pip install yt-dlp" ou coloque o executável em akira-js/bin/yt-dlp.exe' };
   }
+  const outputPath = generateRandomFilename('mp3');
+  const baseArgs = [
+  '-f', 'bestaudio/best',
+  '--extract-audio', '--audio-format', 'mp3', '--audio-quality', '0',
+  '--no-playlist', '--no-continue', '--no-part',
+  '--match-filter', 'duration < 1200',
+  '--max-filesize', '25M',
+  '--ffmpeg-location', FFMPEG_BIN,
+  '-o', outputPath,
+  url
+];
+
+
+  const spawnArgs = tool.mode === 'exe' ? baseArgs : ['-m', 'yt_dlp', ...baseArgs];
+  const spawnCmd = tool.cmd;
+  return await new Promise((resolve) => {
+    let stderr = '';
+    const proc = spawn(spawnCmd, spawnArgs, { shell: false });
+    proc.stderr.on('data', (d) => { stderr += d.toString(); });
+    proc.on('close', (code) => {
+      if (code === 0 && fs.existsSync(outputPath)) {
+        try {
+          const stats = fs.statSync(outputPath);
+          if (!stats || stats.size === 0) {
+            cleanupFile(outputPath);
+            return resolve({ error: 'Arquivo vazio' });
+          }
+          const buffer = fs.readFileSync(outputPath);
+          cleanupFile(outputPath);
+          let title = 'Música do YouTube';
+          let duration = null;
+          let author = 'Desconhecido';
+          try {
+            const metaArgs = ['--print', '%(title)s|%(duration)s|%(uploader)s', '--no-playlist', url];
+            const metaCmd = tool.mode === 'exe'
+              ? `${tool.cmd} ${metaArgs.map(a => (a.includes(' ') ? '"' + a + '"' : a)).join(' ')}`
+              : `${tool.cmd} -m yt_dlp ${metaArgs.map(a => (a.includes(' ') ? '"' + a + '"' : a)).join(' ')}`;
+            const metaOut = execSync(metaCmd, { encoding: 'utf8', shell: true });
+            const parts = (metaOut || '').trim().split('|');
+            if (parts[0]) title = parts[0];
+            if (parts[1]) duration = parseInt(parts[1], 10) || null;
+            if (parts[2]) author = parts[2];
+          } catch (_) {}
+          console.log('✅ Download concluído via yt-dlp!');
+          return resolve({ buffer, title, duration, author });
+        } catch (e) {
+          return resolve({ error: e.message });
+        }
+      }
+      // Mapear erros comuns
+      if (/does not pass filter/i.test(stderr)) {
+        return resolve({ error: 'Vídeo muito longo (máximo 20 minutos).' });
+      }
+      if (/File is larger than max-filesize/i.test(stderr)) {
+        return resolve({ error: 'Arquivo muito grande (>25MB). Tente um vídeo mais curto.' });
+      }
+      if (/HTTP Error 403|403 Forbidden/i.test(stderr)) {
+        return resolve({ error: 'Acesso negado pelo YouTube (403). Tente outro vídeo.' });
+      }
+      return resolve({ error: 'Falha no yt-dlp: ' + (stderr.split('\n').slice(-3).join(' ').trim() || 'desconhecida') });
+    });
+  });
 }
 // ═══════════════════════════════════════════════════════════════════════
 // FUNÇÕES PARA STICKERS PERSONALIZADOS (COM METADADOS) - ADAPTADAS
