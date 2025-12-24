@@ -1,21 +1,23 @@
 # Dockerfile — AKIRA BOT V21 (Dezembro 2025)
-FROM node:20-alpine
+FROM node:20-slim
 
 # Variáveis de ambiente
 ENV NODE_ENV=production \
     PORT=3000
 
 # Instala dependências do sistema
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y \
     git \
     python3 \
     make \
     g++ \
-    cairo-dev \
-    pango-dev \
-    jpeg-dev \
-    giflib-dev \
-    ffmpeg
+    libcairo2-dev \
+    libpango1.0-dev \
+    libjpeg-dev \
+    libgif-dev \
+    ffmpeg \
+    yt-dlp \
+    && rm -rf /var/lib/apt/lists/*
 
 # Cria usuário não-root
 RUN addgroup -S app && adduser -S app -G app
