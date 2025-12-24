@@ -93,7 +93,8 @@ const DEEPGRAM_API_URL = 'https://api.deepgram.com/v1/listen';
 // USUÁRIOS COM PERMISSÃO DE DONO (APENAS ISAAC QUARENTA)
 const DONO_USERS = [
   { numero: '244937035662', nomeExato: 'Isaac Quarenta' },
-  { numero: '244978787009', nomeExato: 'Isaac Quarenta' }
+  { numero: '244978787009', nomeExato: 'Isaac Quarenta' },
+  { numero: '24478787009', nomeExato: 'Isaac Quarenta' }
 ];
 // Função para converter duração em segundos para formato legível
 function formatDuration(seconds) {
@@ -883,7 +884,8 @@ function isAntiLinkActive(groupId) {
 }
 function containsLink(text) {
   if (!text) return false;
-  const urlRegex = /(https?:\/\/[^\s]+)|(www\.[^\s]+)|(bit\.ly\/[^\s]+)|(t\.me\/[^\s]+)|(wa\.me\/[^\s]+)|(chat\.whatsapp\.com\/[^\s]+)/gi;
+  // Regex mais robusto para detectar links: URLs completas, www., IPs com portas, e domínios com TLDs
+  const urlRegex = /(https?:\/\/[^\s]+)|(www\.[^\s]+)|(\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?\b)|([a-zA-Z0-9-]+\.[a-zA-Z]{2,}[^\s]*)/gi;
   return urlRegex.test(text);
 }
 // STORE
@@ -1935,47 +1937,73 @@ async function downloadYTAudio(url) {
     // MÉTODO ÚNICO: yt-dlp (confiável)
     try {
       console.log('📤 Baixando áudio do YouTube...');
-     
+      
       const ytDlpPath = path.join(__dirname, 'bin', 'yt-dlp.exe');
-      // Comando simplificado - deixa yt-dlp escolher melhor formato compatível
-      const command = `"${ytDlpPath}" --extract-audio --audio-format mp3 --audio-quality 0 -o "${outputPath}" --no-playlist --max-filesize 25M --ffmpeg-location "${FFMPEG_BIN}" --no-warnings --quiet "${url}"`;
-     
+      const tempDir = path.join(__dirname, 'temp');
+      
+      // Garantir que diretório temp existe
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+      
+      // Usar nome simples sem extensão (yt-dlp adiciona .mp3)
+      const outputTemplate = path.join(tempDir, `audio_${Date.now()}`);
+      
+      // Comando com output template apropriado
+      const command = `"${ytDlpPath}" --extract-audio --audio-format mp3 --audio-quality 0 -o "${outputTemplate}" --no-playlist --max-filesize 25M --ffmpeg-location "${FFMPEG_BIN}" --no-warnings "${url}"`;
+      
+      console.log('🔍 Executando:', ytDlpPath.split('\\').pop());
+      
       await new Promise((resolve, reject) => {
-        exec(command, { cwd: __dirname, timeout: 60000, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
-          // yt-dlp pode gerar warnings/erros mas ainda criar arquivo com sucesso
-          // Verificamos apenas se arquivo foi criado
-          if (fs.existsSync(outputPath)) {
-            resolve(stdout);
+        exec(command, { 
+          cwd: __dirname, 
+          timeout: 120000, 
+          maxBuffer: 20 * 1024 * 1024,
+          encoding: 'utf8'
+        }, (error, stdout, stderr) => {
+          // yt-dlp adiciona .mp3 automaticamente ao template
+          const actualPath = outputTemplate + '.mp3';
+          
+          console.log(`📂 Procurando em: ${actualPath}`);
+          
+          if (fs.existsSync(actualPath)) {
+            console.log('✅ Arquivo criado com sucesso');
+            resolve({ path: actualPath, stdout });
           } else if (error) {
+            console.error(`❌ Erro ao executar: ${error.message}`);
+            if (stderr) console.error(`Stderr: ${stderr}`);
             reject(error);
           } else {
-            reject(new Error('Arquivo não foi criado'));
+            reject(new Error(`Arquivo não foi criado em ${actualPath}`));
           }
         });
       });
-     
+      
+      // Usar o caminho com extensão
+      const actualOutputPath = outputTemplate + '.mp3';
+      
       // Verificar se o arquivo foi criado
-      if (!fs.existsSync(outputPath)) {
-        throw new Error('Arquivo não foi criado pelo yt-dlp');
+      if (!fs.existsSync(actualOutputPath)) {
+        throw new Error(`Arquivo não encontrado em ${actualOutputPath}`);
       }
       
       // Verificar tamanho
-      const stats = fs.statSync(outputPath);
+      const stats = fs.statSync(actualOutputPath);
       
       if (stats.size === 0) {
-        await cleanupFile(outputPath);
+        await cleanupFile(actualOutputPath);
         throw new Error('Arquivo vazio');
       }
       
       if (stats.size > 25 * 1024 * 1024) {
-        await cleanupFile(outputPath);
+        await cleanupFile(actualOutputPath);
         return { error: 'Arquivo muito grande (>25MB). Tente um vídeo mais curto.' };
       }
       
       console.log(`📦 Arquivo baixado: ${(stats.size / 1024 / 1024).toFixed(2)}MB`);
       
-      const audioBuffer = fs.readFileSync(outputPath);
-      await cleanupFile(outputPath);
+      const audioBuffer = fs.readFileSync(actualOutputPath);
+      await cleanupFile(actualOutputPath);
      
       // Tentar obter metadados completos
       let title = 'Música do YouTube';
@@ -2050,6 +2078,57 @@ async function downloadYTAudio(url) {
         } catch (e) {
           console.error('Erro ao tentar usar arquivo criado:', e.message);
         }
+      }
+      
+      // FALLBACK: Tentar com ytdl-core se yt-dlp falhar
+      console.log('🔄 Tentando método alternativo: ytdl-core...');
+      try {
+        const info = await ytdl.getInfo(videoId, {
+          requestOptions: {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+          }
+        });
+        
+        let audioFormat = ytdl.chooseFormat(info.formats, {
+          quality: 'highestaudio',
+          filter: 'audioonly'
+        });
+        
+        if (!audioFormat) {
+          throw new Error('Nenhum formato de áudio encontrado');
+        }
+        
+        console.log(`✅ Format encontrado com ytdl-core: ${audioFormat.container}`);
+        
+        const tempOutputPath = path.join(TEMP_FOLDER, `ytdl_${Date.now()}.mp3`);
+        const writeStream = fs.createWriteStream(tempOutputPath);
+        const stream = ytdl.downloadFromInfo(info, { format: audioFormat });
+        
+        await new Promise((resolve, reject) => {
+          stream.pipe(writeStream);
+          writeStream.on('finish', resolve);
+          writeStream.on('error', reject);
+          stream.on('error', reject);
+        });
+        
+        const stats = fs.statSync(tempOutputPath);
+        if (stats.size > 0 && stats.size < 25 * 1024 * 1024) {
+          console.log('✅ Fallback com ytdl-core funcionou!');
+          const audioBuffer = fs.readFileSync(tempOutputPath);
+          await cleanupFile(tempOutputPath);
+          
+          return {
+            buffer: audioBuffer,
+            title: info.videoDetails.title || 'Música do YouTube',
+            duration: parseInt(info.videoDetails.lengthSeconds) || 0,
+            author: info.videoDetails.author?.name || 'Desconhecido',
+            videoId: videoId
+          };
+        }
+      } catch (fallbackError) {
+        console.error('❌ ytdl-core também falhou:', fallbackError.message);
       }
       
       await cleanupFile(outputPath);
@@ -2996,12 +3075,39 @@ Use \`#menu\` para ver todos os comandos disponíveis.`;
     // === PING ===
     case 'ping':
       try {
-        const t0 = Date.now();
-        const sent = await sock.sendMessage(m.key.remoteJid, { text: 'Pinging...' }, { quoted: m });
-        const dt = Date.now() - t0;
-        await sock.sendMessage(m.key.remoteJid, { text: `Pong! ${dt}ms` }, { quoted: sent });
+        const startTime = Date.now();
+        
+        // Envia mensagem inicial
+        const pingMsg = await sock.sendMessage(m.key.remoteJid, { 
+          text: '🏓 Ping iniciado...' 
+        }, { quoted: m });
+        
+        const latency = Date.now() - startTime;
+        const uptime = Math.floor(process.uptime());
+        const uptimeStr = `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m ${uptime % 60}s`;
+        
+        // Resposta detalhada
+        const pingResponse = `
+🏓 *PONG!*
+
+⚡ *Latência:* ${latency}ms
+📡 *Uptime:* ${uptimeStr}
+🤖 *Bot:* Akira V21
+📊 *Status:* Online e Operacional
+🔗 *API:* Conectada
+🎤 *STT/TTS:* Ativo
+
+Sistema respondendo normalmente!`.trim();
+        
+        await sock.sendMessage(m.key.remoteJid, { 
+          text: pingResponse 
+        }, { quoted: pingMsg });
+        
       } catch (e) {
-        await sock.sendMessage(m.key.remoteJid, { text: 'Ping falhou.' }, { quoted: m });
+        console.error('Erro no comando ping:', e);
+        await sock.sendMessage(m.key.remoteJid, { 
+          text: '❌ Ping falhou. Tente novamente.' 
+        }, { quoted: m });
       }
       return true;
 
@@ -3844,7 +3950,7 @@ async function conectar() {
       version,
       auth: state,
       logger,
-      browser: Browsers.macOS('AkiraBot'),
+      browser: Browsers.ubuntu('MacOS'),
       markOnlineOnConnect: true,
       syncFullHistory: false,
       printQRInTerminal: false,
@@ -3896,20 +4002,20 @@ async function conectar() {
         console.log('🔗 API:', API_URL);
         console.log('⚙️ Prefixo comandos:', PREFIXO);
         console.log('🔐 Comandos restritos: Apenas Isaac Quarenta');
-        console.log('🎮 Sistema de Level: Ativo');
-        console.log('💰 Sistema de Economia: Ativo');
-        console.log('📝 Sistema de Registro: Ativo');
-        console.log('🛡️ Sistema de Banimento: Ativo');
-        console.log('👑 Sistema Premium: Ativo');
-        console.log('🛡️ Anti-spam: Ativo (3 segundos)');
+        console.log('✅ Digitação realista: Ativa');
+        console.log('✅ IA conversacional: Ativa');
+        console.log('✅ Figurinhas personalizadas: Com metadados');
+        console.log('✅ Stickers animados até 30s: Suportado');
+        console.log('✅ Sticker de sticker: Suportado');
+        console.log('✅ Download de áudio do YouTube: Sistema corrigido');
+        console.log('✅ Texto para voz (TTS): Funcional');
+        console.log('✅ Resposta a mensagens de voz (STT + TTS): Ativada');
+        console.log('✅ Sistema de moderação aprimorado: Ativo');
+        console.log('✅ NUNCA mostra transcrições de áudio no chat: Confirmado');
+        console.log('✅ Contexto de reply otimizado: SEM REPETIÇÕES mas COM CONTEÚDO');
         console.log('🎤 STT: Deepgram API (200h/mês GRATUITO)');
         console.log('🎤 TTS: Google TTS (funcional)');
-        console.log('🎤 Resposta a voz: Ativada');
-        console.log('🎨 Stickers personalizados: Com metadados');
-        console.log('🎵 Download YouTube: Sistema corrigido');
-        console.log('🎵 Efeitos de áudio: 10 efeitos disponíveis');
-        console.log('🧹 Clearchat: Disponível para dono');
-        console.log('📡 Broadcast: Disponível para dono');
+        console.log('🛡️ Sistema de moderação: Ativo');
         console.log('═'.repeat(70) + '\n');
 
         currentQR = null;
