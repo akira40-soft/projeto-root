@@ -1,32 +1,63 @@
+# Dockerfile — AKIRA BOT V21 (Dezembro 2025)
 FROM node:20-slim
 
-ENV NODE_ENV=production PORT=3000
+# Variáveis de ambiente
+ENV NODE_ENV=production \
+    PORT=3000
 
 # Instala dependências do sistema
 RUN apt-get update && apt-get install -y \
-    git curl python3 build-essential \
-    libcairo2-dev libpango1.0-dev libjpeg-dev \
-    ffmpeg yt-dlp \
+    git \
+    python3 \
+    python3-dev \
+    build-essential \
+    make \
+    g++ \
+    libcairo2-dev \
+    libpango1.0-dev \
+    libjpeg-dev \
+    libgif-dev \
+    ffmpeg \
+    yt-dlp \
     && rm -rf /var/lib/apt/lists/*
 
+# Cria usuário não-root
+RUN addgroup --system app && adduser --system --ingroup app app
+
+# Define diretório de trabalho
 WORKDIR /app
 
 # Copia package files
 COPY package*.json ./
 
-# INSTALAÇÃO SIMPLES E GARANTIDA (SEM --production)
-RUN npm cache clean --force && \
-    npm install @whiskeysockets/baileys@6.7.5 --legacy-peer-deps && \
-    npm install --legacy-peer-deps
+# Instala dependências
+RUN npm install --production --no-audit && \
+    npm rebuild ffmpeg-static || true
 
-# Copia código
+# Copia código da aplicação
 COPY index.js ./
 
-# Cria diretórios
-RUN mkdir -p temp database/data database/datauser auth_info_baileys
+# Cria diretórios necessários
+RUN mkdir -p \
+    /app/temp \
+    /app/database/data \
+    /app/database/datauser \
+    /app/auth_info_baileys \
+    /app/lib \
+    /app/banner \
+    /app/bin \
+    /app/level && \
+    chown -R app:app /app
+
+# Muda para usuário não-root
+USER app
 
 # Expõe porta
 EXPOSE 3000
 
-# Inicia bot
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
+
+# Comando de inicialização
 CMD ["node", "index.js"]
