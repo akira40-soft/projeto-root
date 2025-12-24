@@ -1483,7 +1483,19 @@ async function downloadYTAudio(url) {
       }
       
       // Comando melhorado - mais flexível com formatos
-      const command = `yt-dlp --extract-audio --audio-format mp3 --audio-quality 5 -o "${outputFile}" --no-playlist --max-filesize 25M --no-warnings "${url}"`;
+      const command = [
+        'yt-dlp',
+        '-f', 'bestaudio/best',
+        '--extract-audio',
+        '--audio-format', 'mp3',
+        '--audio-quality', '0',
+        '--no-playlist',
+        '--max-filesize', '25M',
+        '--no-warnings',
+        '-o', `"${outputFile}"`,
+        `"${url}"`
+      ].join(' ');
+
       
       console.log('🔍 Executando yt-dlp...');
       
