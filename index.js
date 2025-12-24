@@ -4471,7 +4471,7 @@ async function conectar() {
       version,
       auth: state,
       logger,
-      browser: Browsers.ubuntu('MacOS'),
+      browser: Browsers.macOS('AkiraBot'),
       markOnlineOnConnect: true,
       syncFullHistory: false,
       printQRInTerminal: false,
