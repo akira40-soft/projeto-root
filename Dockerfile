@@ -14,7 +14,7 @@ WORKDIR /app
 # Copia package files
 COPY package*.json ./
 
-# INSTALAÇÃO SIMPLES E GARANTIDA
+# INSTALAÇÃO SIMPLES E GARANTIDA (SEM --production)
 RUN npm cache clean --force && \
     npm install @whiskeysockets/baileys@6.7.5 --legacy-peer-deps && \
     npm install --legacy-peer-deps
