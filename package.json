@@ -32,7 +32,7 @@
     "yt-search": "^2.13.1"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.0.0 <21.0.0"
   },
   "author": "Isaac Quarenta",
   "license": "MIT"
