@@ -56,23 +56,28 @@ COPY --chown=app:app package*.json ./
 # Limpa cache e instala dependências
 RUN npm cache clean --force && \
     npm config set fetch-retry-mintimeout 100000 && \
-    npm config set fetch-retry-maxtimeout 600000 && \
-    npm install --production \
-                --no-audit \
-                --legacy-peer-deps \
-                --verbose && \
-    npm rebuild ffmpeg-static --build-from-source || true && \
+    npm config set fetch-retry-maxtimeout 600000
+
+# Instala Baileys PRIMEIRO (instalação isolada)
+RUN echo "📦 Instalando Baileys isoladamente..." && \
+    npm install @whiskeysockets/baileys@6.7.5 --legacy-peer-deps --no-save
+
+# Agora instala TODAS as dependências
+RUN npm install --legacy-peer-deps --no-audit
+
+# Rebuild de módulos nativos
+RUN npm rebuild ffmpeg-static --build-from-source || true && \
     npm rebuild sharp --build-from-source || true
 
 # ═══════════════════════════════════════════════════════════════════════
 # ETAPA 5: Verifica instalação crítica (DEBUG)
 # ═══════════════════════════════════════════════════════════════════════
 RUN echo "🔍 Verificando instalação do Baileys..." && \
-    ls -la node_modules/@whiskeysockets/ || \
-    (echo "❌ ERRO: Baileys não instalado!" && exit 1)
+    ls -la node_modules/@whiskeysockets/ && \
+    echo "✅ Baileys instalado com sucesso!"
 
-RUN echo "📦 Módulos instalados:" && \
-    ls -la node_modules/ | head -20
+RUN echo "📦 Módulos críticos instalados:" && \
+    ls -la node_modules/ | grep -E "@whiskeysockets|express|axios|pino" || true
 
 # ═══════════════════════════════════════════════════════════════════════
 # ETAPA 6: Copia código da aplicação
