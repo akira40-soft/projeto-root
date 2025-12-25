@@ -79,7 +79,7 @@ const FFMPEG_BIN = ffmpegInstaller.path;
 // CONFIGURAÇÕES E CONSTANTES
 // ═══════════════════════════════════════════════════════════════════════
 const PORT = process.env.PORT || 3000;
-const API_URL = process.env.API_URL || 'https://akra35567-akira.hf.space/api/akira';
+const API_URL = process.env.API_URL || 'https://akra35567-AKIRA-SOFTEDGE.hf.space/api/akira';
 const BOT_NUMERO_REAL = '37839265886398';
 const PREFIXO = '#'; // Prefixo para comandos extras
 const TEMP_FOLDER = './temp';
@@ -1951,10 +1951,10 @@ async function downloadYTAudio(url) {
       // Usar nome simples sem extensão (yt-dlp adiciona .mp3)
       const outputTemplate = path.join(tempDir, `audio_${Date.now()}`);
       
-      // Comando com output template apropriado
-      const command = isWindows 
-        ? `"${ytDlpPath}" --extract-audio --audio-format mp3 --audio-quality 0 -o "${outputTemplate}" --no-playlist --max-filesize 25M --ffmpeg-location "${FFMPEG_BIN}" --no-warnings "${url}"`
-        : `${ytDlpPath} --extract-audio --audio-format mp3 --audio-quality 0 -o "${outputTemplate}" --no-playlist --max-filesize 25M --ffmpeg-location "${FFMPEG_BIN}" --no-warnings "${url}"`;
+      // Comando com output template apropriado + opções para bypass YouTube 403
+      const command = isWindows
+        ? `"${ytDlpPath}" --extract-audio --audio-format mp3 --audio-quality 0 -o "${outputTemplate}" --no-playlist --max-filesize 25M --ffmpeg-location "${FFMPEG_BIN}" --no-warnings --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" --geo-bypass --no-check-certificates --referer "https://www.youtube.com/" "${url}"`
+        : `${ytDlpPath} --extract-audio --audio-format mp3 --audio-quality 0 -o "${outputTemplate}" --no-playlist --max-filesize 25M --ffmpeg-location "${FFMPEG_BIN}" --no-warnings --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" --geo-bypass --no-check-certificates --referer "https://www.youtube.com/" "${url}"`;
       
       console.log('🔍 Executando:', ytDlpPath.split(path.sep).pop());
       
