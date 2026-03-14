@@ -1,63 +1,50 @@
-# Dockerfile — AKIRA BOT V21 (Dezembro 2025)
-FROM node:20-slim
+# Dockerfile — AKIRA V21 ULTIMATE (Janeiro 2025)
+# Otimizado para Hugging Face Spaces (CPU básico)
+
+FROM python:3.11-slim
 
 # Variáveis de ambiente
-ENV NODE_ENV=production \
-    PORT=3000
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    LOCAL_LLM_AUTO_DOWNLOAD=true
 
-# Instala dependências do sistema
-RUN apt-get update && apt-get install -y \
-    git \
-    python3 \
-    python3-dev \
-    build-essential \
-    make \
-    g++ \
-    libcairo2-dev \
-    libpango1.0-dev \
-    libjpeg-dev \
-    libgif-dev \
-    ffmpeg \
-    yt-dlp \
-    && rm -rf /var/lib/apt/lists/*
+WORKDIR /akira
 
-# Cria usuário não-root
-RUN addgroup --system app && adduser --system --ingroup app app
+# Instala apenas dependências essenciais e ferramentas de build
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        curl \
+        ca-certificates \
+        tesseract-ocr \
+        tesseract-ocr-por \
+        tesseract-ocr-eng \
+        libgl1 \
+        && rm -rf /var/lib/apt/lists/*
 
-# Define diretório de trabalho
-WORKDIR /app
+# Copia dependências
+COPY requirements.txt .
 
-# Copia package files
-COPY package*.json ./
-
-# Instala dependências
-RUN npm install --production --no-audit && \
-    npm rebuild ffmpeg-static || true
+# Instala dependências Python
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir --prefer-binary \
+        numpy \
+        huggingface_hub \
+        -r requirements.txt
 
 # Copia código da aplicação
-COPY index.js ./
-
-# Cria diretórios necessários
-RUN mkdir -p \
-    /app/temp \
-    /app/database/data \
-    /app/database/datauser \
-    /app/auth_info_baileys \
-    /app/lib \
-    /app/banner \
-    /app/bin \
-    /app/level && \
-    chown -R app:app /app
-
-# Muda para usuário não-root
-USER app
-
-# Expõe porta
-EXPOSE 3000
+COPY main.py .
+COPY modules/ modules/
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
+    CMD curl -f http://localhost:7860/health || exit 1
+
+# Expõe porta
+EXPOSE 7860
 
 # Comando de inicialização
-CMD ["node", "index.js"]
+CMD ["gunicorn", "--bind", "0.0.0.0:7860", "--workers", "2", "--threads", "4", "--timeout", "120", "main:app"]
+
