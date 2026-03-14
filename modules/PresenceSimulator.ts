@@ -72,8 +72,8 @@ class PresenceSimulator {
             await this.safeSendPresenceUpdate('composing', jid);
             this.logger.log(`⌨️  [DIGITANDO] Simulando digitação por ${(durationMs / 1000).toFixed(1)}s...`);
 
-            // Step 3: Aguardar conforme tamanho da mensagem (Otimizado: máximo 3s)
-            await delay(Math.min(durationMs, 3000));
+            // Step 3: Aguardar conforme tamanho da mensagem
+            await delay(durationMs);
 
             // Step 4: Parar de digitar (transição)
             await this.safeSendPresenceUpdate('paused', jid);
@@ -274,9 +274,9 @@ class PresenceSimulator {
      * Calcula duração realista de digitação baseado no tamanho da resposta
      * Fórmula: 30-50ms por caractere, mínimo 1s, máximo 15s
      */
-    calculateTypingDuration(text: string, minMs: number = 200, maxMs: number = 3000) {
+    calculateTypingDuration(text: string, minMs: number = 1000, maxMs: number = 15000) {
         if (!text) return minMs;
-        const estimatedMs = Math.max(text.length * 15, minMs);
+        const estimatedMs = Math.max(text.length * 40, minMs);
         return Math.min(estimatedMs, maxMs);
     }
 
@@ -284,9 +284,9 @@ class PresenceSimulator {
      * Calcula duração realista de gravação de áudio
      * Fórmula: 100ms por 10 caracteres, mínimo 2s, máximo 10s
      */
-    calculateRecordingDuration(text: string, minMs: number = 500, maxMs: number = 2500) {
+    calculateRecordingDuration(text: string, minMs: number = 2000, maxMs: number = 10000) {
         if (!text) return minMs;
-        const estimatedMs = Math.max((text.length / 10) * 40, minMs);
+        const estimatedMs = Math.max((text.length / 10) * 100, minMs);
         return Math.min(estimatedMs, maxMs);
     }
 }

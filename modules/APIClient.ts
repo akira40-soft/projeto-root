@@ -38,8 +38,7 @@ class APIClient {
             imagem_dados = null,
             grupo_id = null,
             grupo_nome = null,
-            forcar_pesquisa = false,
-            analise_doc = ''
+            forcar_pesquisa = false
         } = messageData;
 
         const payload: any = {
@@ -47,22 +46,21 @@ class APIClient {
             numero: String(numero || 'desconhecido').substring(0, 20),
             mensagem: String(mensagem || '').substring(0, 2000),
             tipo_conversa: ['pv', 'grupo'].includes(tipo_conversa) ? tipo_conversa : 'pv',
-            tipo_mensagem: ['texto', 'image', 'audio', 'video', 'document', 'documentWithCaption'].includes(tipo_mensagem) ? tipo_mensagem : 'texto',
+            tipo_mensagem: ['texto', 'image', 'audio', 'video'].includes(tipo_mensagem) ? tipo_mensagem : 'texto',
             historico: [],
-            forcar_busca: Boolean(forcar_pesquisa),
-            analise_doc: String(analise_doc || '')
+            forcar_busca: Boolean(forcar_pesquisa)
         };
 
         // Adiciona contexto de reply se existir
-        if (mensagem_citada || reply_metadata.is_reply) {
-            payload.mensagem_citada = String(mensagem_citada || '').substring(0, 3000);
+        if (mensagem_citada) {
+            payload.mensagem_citada = String(mensagem_citada).substring(0, 3000);
             payload.reply_metadata = {
                 is_reply: true,
                 reply_to_bot: Boolean(reply_metadata.reply_to_bot),
                 quoted_author_name: String(reply_metadata.quoted_author_name || 'desconhecido').substring(0, 50),
                 quoted_author_numero: String(reply_metadata.quoted_author_numero || 'desconhecido'),
                 quoted_type: String(reply_metadata.quoted_type || 'texto'),
-                quoted_text_original: String(reply_metadata.quoted_text_original || '').substring(0, 2000),
+                quoted_text_original: String(reply_metadata.quoted_text_original || '').substring(0, 200),
                 context_hint: String(reply_metadata.context_hint || '')
             };
         } else {
@@ -73,10 +71,9 @@ class APIClient {
         }
 
         // Adiciona dados de imagem se existirem
-        if (imagem_dados && (imagem_dados.dados || imagem_dados.path)) {
+        if (imagem_dados && imagem_dados.dados) {
             payload.imagem = {
-                dados: imagem_dados.dados || null,
-                path: imagem_dados.path || null,
+                dados: imagem_dados.dados,
                 mime_type: imagem_dados.mime_type || 'image/jpeg',
                 descricao: imagem_dados.descricao || 'Imagem enviada',
                 analise_visao: imagem_dados.analise_visao || {}

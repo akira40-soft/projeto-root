@@ -410,8 +410,6 @@ class BotCore {
                     return;
                 }
                 await this.handleImageMessage(m, nome, numeroReal, replyInfo, ehGrupo);
-            } else if (this.messageProcessor.hasDocument(m)) {
-                await this.handleDocumentMessage(m, nome, numeroReal, replyInfo, ehGrupo);
             } else if (temAudio) {
                 await this.handleAudioMessage(m, nome, numeroReal, replyInfo, ehGrupo);
             } else if (texto) {
@@ -425,7 +423,7 @@ class BotCore {
 
     async handleImageMessage(m: any, nome: string, numeroReal: string, replyInfo: any, ehGrupo: boolean): Promise<void> {
         this.logger.info(`🖼️ [IMAGEM] ${nome}`);
-        if (ehGrupo && this.config.FEATURE_LEVELING && this.levelSystem && this.groupManagement?.groupSettings[m.key.remoteJid]?.leveling !== false) {
+        if (ehGrupo && this.config.FEATURE_LEVELING && this.levelSystem && this.groupManagement?.groupSettings[m.key.remoteJid]?.leveling) {
             const xp = this.levelSystem.awardXp(m.key.remoteJid, numeroReal, 15);
             if (xp) this.logger.info(`📈 [LEVEL] ${nome} +15 XP`);
         }
@@ -434,7 +432,7 @@ class BotCore {
             let deveResponder = false;
             const caption = this.messageProcessor.extractText(m) || '';
             const captionLower = caption.toLowerCase();
-            const botNameLower = (this.config.BOT_NAME || 'akira').toLowerCase();
+            const botNameLower = (this.config.BOT_NAME || 'belmira').toLowerCase();
 
             if (!ehGrupo) deveResponder = true;
             else if (this.messageProcessor.isBotMentioned(m)) deveResponder = true;
@@ -505,12 +503,8 @@ class BotCore {
                 reply_metadata: replyInfo ? {
                     is_reply: replyInfo.isReply || true,
                     reply_to_bot: replyInfo.ehRespostaAoBot,
-                    quoted_author_name: replyInfo.quemEscreveuCitacaoName || replyInfo.quemEscreveuCitacao || 'desconhecido',
-                    quoted_author_numero: replyInfo.quotedAuthorNumero || 'desconhecido',
-                    quoted_type: replyInfo.quotedType || 'texto',
-                    quoted_text_original: replyInfo.quotedTextOriginal || '',
-                    context_hint: replyInfo.contextHint || ''
-                } : { is_reply: false, reply_to_bot: false }
+                    quoted_author_name: replyInfo.quemEscreveuCitacao || 'desconhecido'
+                } : null
             });
 
             this.logger.info(`👁️ Analisando imagem...`);
@@ -529,58 +523,6 @@ class BotCore {
             await this.presenceSimulator.simulateTicks(m, true, false);
         } catch (error: any) {
             this.logger.error('❌ Erro imagem:', error.message);
-        }
-    }
-
-    async handleDocumentMessage(m: any, nome: string, numeroReal: string, replyInfo: any, ehGrupo: boolean): Promise<void> {
-        this.logger.info(`📄 [DOCUMENTO] ${nome}`);
-        try {
-            const caption = this.messageProcessor.extractText(m) || '';
-            const contentType = getContentType(m.message);
-            const docMsg = contentType === 'documentWithCaptionMessage'
-                ? m.message.documentWithCaptionMessage.message.documentMessage
-                : m.message.documentMessage;
-
-            if (!docMsg) { this.logger.error('❌ Documento inválido'); return; }
-
-            const fileName = docMsg.fileName || 'document';
-            const mimeType = docMsg.mimetype || 'application/octet-stream';
-
-            // Simula presença
-            await this.presenceSimulator.simulateTicks(m, true, false);
-            await this.presenceSimulator.simulateTyping(m.key.remoteJid, 1000);
-
-            // Payload para API
-            const payload = this.apiClient.buildPayload({
-                usuario: nome,
-                numero: numeroReal,
-                mensagem: caption || `Analise o documento: ${fileName}`,
-                tipo_conversa: ehGrupo ? 'grupo' : 'pv',
-                tipo_mensagem: caption ? 'documentWithCaption' : 'document',
-                analise_doc: `[Arquivo: ${fileName} | Tipo: ${mimeType}]`,
-                mensagem_citada: replyInfo?.textoMensagemCitada || '',
-                reply_metadata: replyInfo ? {
-                    is_reply: replyInfo.isReply || true,
-                    reply_to_bot: replyInfo.ehRespostaAoBot,
-                    quoted_author_name: replyInfo.quemEscreveuCitacaoName || replyInfo.quemEscreveuCitacao || 'desconhecido',
-                    quoted_author_numero: replyInfo.quotedAuthorNumero || 'desconhecido',
-                    quoted_type: replyInfo.quotedType || 'texto',
-                    quoted_text_original: replyInfo.quotedTextOriginal || '',
-                    context_hint: replyInfo.contextHint || ''
-                } : { is_reply: false, reply_to_bot: false }
-            });
-
-            this.logger.info(`📤 Enviando documento para API...`);
-            const resultado = await this.apiClient.processMessage(payload);
-
-            if (resultado.success) {
-                const resposta = resultado.resposta || 'Recebi o documento.';
-                await this.presenceSimulator.simulateTyping(m.key.remoteJid, this.presenceSimulator.calculateTypingDuration(resposta));
-                const opcoes = ehGrupo || replyInfo?.ehRespostaAoBot ? { quoted: m } : {};
-                await this.sock.sendMessage(m.key.remoteJid, { text: resposta }, opcoes);
-            }
-        } catch (error: any) {
-            this.logger.error('❌ Erro documento:', error.message);
         }
     }
 
@@ -645,7 +587,7 @@ class BotCore {
                     const handled = await this.commandHandler.handle(m, { nome, numeroReal, texto, replyInfo, ehGrupo });
                     if (handled) {
                         this.logger.info(`⚡ Comando: ${texto.substring(0, 30)}`);
-                        if (ehGrupo && this.config.FEATURE_LEVELING && this.levelSystem && this.groupManagement?.groupSettings[m.key.remoteJid]?.leveling !== false) {
+                        if (ehGrupo && this.config.FEATURE_LEVELING && this.levelSystem && this.groupManagement?.groupSettings[m.key.remoteJid]?.leveling) {
                             const xp = this.levelSystem.awardXp(m.key.remoteJid, numeroReal, 5);
                             if (xp) this.logger.info(`📈 [LEVEL] ${nome} +5 XP`);
                         }
@@ -658,7 +600,7 @@ class BotCore {
 
             let deveResponder = false;
             const textoLower = texto.toLowerCase();
-            const botNameLower = (this.config.BOT_NAME || 'akira').toLowerCase();
+            const botNameLower = (this.config.BOT_NAME || 'belmira').toLowerCase();
 
             if (foiAudio) {
                 if (!ehGrupo) deveResponder = true;
@@ -690,7 +632,7 @@ class BotCore {
                 priority_level: replyInfo.priorityLevel || 2
             } : { is_reply: false, reply_to_bot: false };
 
-            if (ehGrupo && this.config.FEATURE_LEVELING && this.levelSystem && this.groupManagement?.groupSettings[m.key.remoteJid]?.leveling !== false) {
+            if (ehGrupo && this.config.FEATURE_LEVELING && this.levelSystem && this.groupManagement?.groupSettings[m.key.remoteJid]?.leveling) {
                 const xp = this.levelSystem.awardXp(m.key.remoteJid, numeroReal, 10);
                 if (xp) this.logger.info(`📈 [LEVEL] ${nome} +10 XP`);
             }

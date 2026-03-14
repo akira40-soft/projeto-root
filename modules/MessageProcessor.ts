@@ -313,7 +313,6 @@ class MessageProcessor {
                 participantJidCitado,
                 ehRespostaAoBot,
                 quemEscreveuCitacao: quotedAuthorNumero,
-                quemEscreveuCitacaoName: context.pushName || 'Usuário',
                 quotedAuthorNumero: quotedAuthorNumero,
                 quotedType: tipoMidia,
                 quotedTextOriginal: quotedTextOriginal,
@@ -463,18 +462,6 @@ class MessageProcessor {
                 return getContentType(subMsg) === 'imageMessage';
             }
             return false;
-        } catch (e: any) {
-            return false;
-        }
-    }
-
-    /**
-    * Detecta se tem documento
-    */
-    hasDocument(message: any): boolean {
-        try {
-            const tipo = getContentType(message.message);
-            return tipo === 'documentMessage' || tipo === 'documentWithCaptionMessage';
         } catch (e: any) {
             return false;
         }

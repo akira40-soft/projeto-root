@@ -655,8 +655,27 @@ class CommandHandler {
                 case 'netexec':
                 case 'winrm':
                 case 'impacket':
+                    if (!isOwner) {
+                        await this.bot.reply(m, '🚫 Este comando requer privilégios de administrador.');
+                        return true;
+                    }
+                    await this._reply(m, '❌ Sistema de cibersegurança não disponível no momento.');
+                    return true;
+
                 case 'setoolkit':
+                    if (!isOwner) {
+                        await this.bot.reply(m, '🚫 Este comando requer privilégios de administrador.');
+                        return true;
+                    }
+                    return await this._handleSetoolkit(m, fullArgs);
+
                 case 'metasploit':
+                    if (!isOwner) {
+                        await this.bot.reply(m, '🚫 Este comando requer privilégios de administrador.');
+                        return true;
+                    }
+                    return await this._handleMetasploit(m, fullArgs);
+
                 case 'dork':
                 case 'email':
                 case 'phone':
@@ -665,7 +684,7 @@ class CommandHandler {
                         await this.bot.reply(m, '🚫 Este comando requer privilégios de administrador.');
                         return true;
                     }
-                    await this._reply(m, '🛡️ *SISTEMA DE PENTESTING APARTADO*\n\nAs ferramentas de cibersegurança foram movidas para um servidor dedicado (@ferramentas-pentsting) para reduzir a latência do bot principal.\n\n_Acesse o painel de ferramentas para executar testes de segurança._');
+                    await this._reply(m, '❌ Sistema OSINT não disponível no momento.');
                     return true;
 
                 case 'mute':
@@ -676,9 +695,12 @@ class CommandHandler {
                 case 'add':
                 case 'promote':
                 case 'demote': {
-                    // SEGURANÇA: Apenas o DONO ou ADMINS do grupo podem usar comandos de gerenciamento
-                    if (!isOwner && !isAdminUsers) {
-                        await this.bot.reply(m, '🚫 *ACESSO NEGADO!*\n\nVocê precisa ser um administrador do grupo ou proprietário do bot para usar este comando.');
+                    // SEGURANÇA: Apenas o DONO pode usar comandos de gerenciamento de grupo
+                    // (Como no modelo antigo - Isaac Quarenta tem acesso exclusivo)
+                    if (!isOwner) {
+                        // Se não for dono, verifica se é admin do grupo E se é para permitir admin
+                        // Mas no modelo original, APENAS o dono tem acesso a esses comandos
+                        await this.bot.reply(m, '🚫 *COMANDO RESTRITO!*\n\nApenas o proprietário do bot pode usar este comando.');
                         return true;
                     }
 

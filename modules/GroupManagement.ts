@@ -110,11 +110,9 @@ class GroupManagement {
         }
 
         // Verifica se o bot está realmente logado (Baileys preenche sock.user após o bind)
-        // Otimização: Se sock.user estiver ausente, tentamos prosseguir se o socket parecer funcional
         if (!this.sock.user || !this.sock.user.id) {
-            this.logger.debug('🔍 [GroupManagement] sock.user ausente (tentando prosseguir mesmo assim)');
-            // Não retornamos false aqui imediatamente, apenas se for CRÍTICO para a operação
-            // Algumas operações de envio não precisam do user JID imediatamente
+            this.logger.debug('🔍 [GroupManagement] sock.user ausente (normal durante aquecimento pós-conexão)');
+            return false;
         }
 
         return true;
@@ -394,9 +392,6 @@ class GroupManagement {
                 return await this.setGroupPhoto(m);
             case 'requireregister':
                 return await this.toggleRequireRegister(m, args[0]);
-            case 'level':
-            case 'niveis':
-                return await this.toggleSetting(m, 'leveling', args[0]);
             default:
                 return false;
         }
