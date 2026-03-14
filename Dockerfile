@@ -1,50 +1,117 @@
-# Dockerfile — AKIRA V21 ULTIMATE (Janeiro 2025)
-# Otimizado para Hugging Face Spaces (CPU básico)
+# Dockerfile — AKIRA BOT RAILWAY (Otimizado Janeiro 2026)
+# ✅ Configurado especificamente para Railway
+# ✅ Pino logging compatível com Railway
+# ✅ Sem pino-pretty transport para evitar erros
+# ✅ Configurações otimizadas para Railway
 
-FROM python:3.11-slim
+FROM node:20-alpine
 
-# Variáveis de ambiente
-ENV DEBIAN_FRONTEND=noninteractive \
-    PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    LOCAL_LLM_AUTO_DOWNLOAD=true
+# ═══════════════════════════════════════════════════════════════════
+# VARIÁVEIS DE AMBIENTE PARA RAILWAY
+# ═══════════════════════════════════════════════════════════════════
+ENV NODE_ENV=production \
+    RAILWAY_ENVIRONMENT=true \
+    # Pino sem transport para evitar erros no Railway
+    PINO_NO_PRETTY=true \
+    # Configurações de rede
+    NODE_OPTIONS="--dns-result-order=ipv4first --no-warnings" \
+    UV_THREADPOOL_SIZE=128 \
+    LANG=C.UTF-8
 
-WORKDIR /akira
+# ═══════════════════════════════════════════════════════════════════
+# INSTALAR DEPENDÊNCIAS DO SISTEMA ESSENCIAIS PARA RAILWAY
+# ═══════════════════════════════════════════════════════════════════
 
-# Instala apenas dependências essenciais e ferramentas de build
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        curl \
-        ca-certificates \
-        tesseract-ocr \
-        tesseract-ocr-por \
-        tesseract-ocr-eng \
-        libgl1 \
-        && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache \
+    git \
+    curl \
+    wget \
+    python3 \
+    py3-pip \
+    make \
+    g++ \
+    cairo-dev \
+    pango-dev \
+    jpeg-dev \
+    giflib-dev \
+    ffmpeg \
+    yt-dlp \
+    ca-certificates \
+    openssl \
+    openssl-dev \
+    zlib-dev \
+    bash \
+    # Cybersecurity tools
+    nmap \
+    hydra \
+    nikto \
+    unzip \
+    perl
 
-# Copia dependências
-COPY requirements.txt .
+# ═══════════════════════════════════════════════════════════════════
+# CONFIGURAÇÃO DE DIRETÓRIOS PARA RAILWAY
+# ═══════════════════════════════════════════════════════════════════
 
-# Instala dependências Python
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir --prefer-binary \
-        numpy \
-        huggingface_hub \
-        -r requirements.txt
+RUN mkdir -p /app/data && \
+    mkdir -p /app/data/auth_info_baileys && \
+    mkdir -p /app/data/database && \
+    mkdir -p /app/data/logs && \
+    mkdir -p /app/data/temp && \
+    chmod -R 755 /app/data
 
-# Copia código da aplicação
-COPY main.py .
-COPY modules/ modules/
+# ═══════════════════════════════════════════════════════════════════
+# DIRETÓRIO DE TRABALHO
+# ═══════════════════════════════════════════════════════════════════
 
-# Healthcheck
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:7860/health || exit 1
+WORKDIR /app
 
-# Expõe porta
-EXPOSE 7860
+# ═══════════════════════════════════════════════════════════════════
+# INSTALAÇÃO DE DEPENDÊNCIAS NODE.JS PARA RAILWAY
+# ═══════════════════════════════════════════════════════════════════
 
-# Comando de inicialização
-CMD ["gunicorn", "--bind", "0.0.0.0:7860", "--workers", "2", "--threads", "4", "--timeout", "120", "main:app"]
+COPY package*.json ./
 
+# Instalação otimizada para Railway
+RUN npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm install --omit=dev --no-audit --progress=false --fetch-retries=5 --legacy-peer-deps
+
+# ═══════════════════════════════════════════════════════════════════
+# COPIAR CÓDIGO DA APLICAÇÃO
+# ═══════════════════════════════════════════════════════════════════
+
+COPY . .
+
+# ═══════════════════════════════════════════════════════════════════
+# VERIFICAÇÃO FINAL PARA RAILWAY
+# ═══════════════════════════════════════════════════════════════════
+
+RUN echo "🔍 Verificando instalação para Railway..." && \
+    node -v && \
+    npm -v && \
+    python3 --version && \
+    ffmpeg -version | head -1 && \
+    echo "✅ Build verificado com sucesso" && \
+    echo "✅ Dockerfile construído com sucesso para Railway"
+
+# Limpar cache para reduzir tamanho da imagem
+RUN npm cache clean --force 2>/dev/null || true
+
+# ═══════════════════════════════════════════════════════════════════
+# EXPOR PORTA PARA RAILWAY
+# ═══════════════════════════════════════════════════════════════════
+# Railway usa $PORT automaticamente
+EXPOSE $PORT
+
+# ═══════════════════════════════════════════════════════════════════
+# HEALTHCHECK PARA RAILWAY
+# ═══════════════════════════════════════════════════════════════════
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:$PORT/health 2>/dev/null || exit 1
+
+# ═══════════════════════════════════════════════════════════════════
+# COMANDO DE INICIALIZAÇÃO PARA RAILWAY
+# ═══════════════════════════════════════════════════════════════════
+
+CMD ["node", "index.js"]
